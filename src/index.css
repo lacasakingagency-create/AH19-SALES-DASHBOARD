@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    border-color: rgba(226, 232, 240, 0.8);
+  }
+}
+
+/* Custom sleek scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+}
+
+/* ============================================================
+   GOLD-YELLOW-WHITE TRI-BLEND (MAIS AMARELO + DOURADO PROFUNDO + TOQUE SUTIL DE BRANCO)
+   ============================================================ */
+
+.gold-yellow-white-blend {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, #FFF36D 8%, #FFD000 45%, #C89614 75%, #8A5A04 100%);
+}
+
+.gold-yellow-white-text {
+  background: linear-gradient(135deg, #FFFFFF 0%, #FFF275 15%, #FFD000 55%, #D4AF37 85%, #996515 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Primary Button Blend - Dominância profunda de amarelo vívido e dourado nobre com mínimo branco */
+.btn-gold-blend {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, #FFDF00 12%, #FFC400 42%, #C88A00 78%, #7A4E02 100%);
+  color: #000000 !important;
+  font-weight: 800 !important;
+  border: 1px solid rgba(255, 215, 0, 0.85) !important;
+  box-shadow: 0 0 18px rgba(255, 196, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.btn-gold-blend:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, #FFE629 12%, #FFD000 45%, #D49400 78%, #8A5700 100%);
+  box-shadow: 0 0 26px rgba(255, 208, 0, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.btn-gold-blend:active {
+  transform: translateY(0);
+}
+
+/* Secondary Button Blend */
+.btn-gold-secondary {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.14) 0%, rgba(212, 148, 0, 0.25) 50%, rgba(138, 87, 0, 0.38) 100%);
+  border: 1px solid rgba(255, 215, 0, 0.5) !important;
+  color: #FFF9D2 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 14px rgba(255, 208, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-gold-secondary:hover {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.24) 0%, rgba(212, 148, 0, 0.35) 50%, rgba(138, 87, 0, 0.48) 100%);
+  border-color: rgba(255, 225, 50, 0.85) !important;
+  box-shadow: 0 0 22px rgba(255, 208, 0, 0.45);
+  color: #FFFFFF !important;
+}
+
+/* Badges / Stickers / Figurinhas */
+.badge-gold-blend {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, #FFF36D 8%, #FFD000 48%, #C89614 78%, #8A5A04 100%);
+  color: #0A0A0A !important;
+  font-weight: 800 !important;
+  border: 1px solid rgba(255, 245, 170, 0.85) !important;
+  box-shadow: 0 0 12px rgba(255, 208, 0, 0.5), inset 0 1px 1px #FFFFFF;
+}
+
+.badge-gold-outline {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 208, 0, 0.20) 50%, rgba(184, 134, 11, 0.30) 100%);
+  border: 1px solid rgba(255, 245, 157, 0.75) !important;
+  color: #FFF8B0 !important;
+  box-shadow: 0 0 12px rgba(255, 208, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+
+/* Icon Container / Stamps / Figurinhas */
+.icon-badge-blend {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 208, 0, 0.28) 45%, rgba(184, 134, 11, 0.42) 100%);
+  border: 1px solid rgba(255, 249, 196, 0.75) !important;
+  box-shadow: 0 0 14px rgba(255, 208, 0, 0.35), inset 0 1px 1.5px rgba(255, 255, 255, 0.85);
+  color: #FFFDE7 !important;
+}
+
+/* Chart Bars / Progress Bars */
+.chart-bar-blend {
+  background: linear-gradient(90deg, #FFFFFF 0%, #FFF275 20%, #FFD000 55%, #D4AF37 80%, #996515 100%) !important;
+  box-shadow: 0 0 12px rgba(255, 208, 0, 0.5);
+}

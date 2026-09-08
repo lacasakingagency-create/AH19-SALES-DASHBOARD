@@ -1,0 +1,6 @@
+{
+  "name": "AH19 Analytics",
+  "description": "Premium financial and e-commerce intelligence dashboard for Life4Billion.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
