@@ -27,6 +27,7 @@ import {
   TransactionItem,
   AuthUser,
   Language,
+  OnboardingResponses,
 } from '../types';
 import {
   CURRENCY_RATES,
@@ -61,10 +62,13 @@ import {
   logoutWithSupabase,
   resetPasswordWithSupabase,
   getActiveAuthUser,
+  saveOnboardingResponses,
   RegisterParams,
   RegisterResult,
   LoginResult,
   ResetPasswordResult,
+  loginWithGoogle as serviceLoginWithGoogle,
+  GoogleAuthParams,
 } from '../services/supabaseAuthService';
 
 export interface ToastMessage {
@@ -97,6 +101,7 @@ interface AppContextType {
   setAuthMode: (mode: 'login' | 'register' | 'forgot') => void;
   authLoading: boolean;
   login: (email: string, pass: string) => Promise<LoginResult>;
+  loginWithGoogle: (params?: GoogleAuthParams) => Promise<LoginResult>;
   registerUser: (
     paramsOrName: RegisterParams | string,
     legacyEmail?: string,
@@ -104,6 +109,7 @@ interface AppContextType {
   ) => Promise<RegisterResult>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<ResetPasswordResult>;
+  completeOnboarding: (responses: OnboardingResponses) => Promise<void>;
 
   // Navigation & Routing
   activeNav: MainNavId;
@@ -210,6 +216,9 @@ interface AppContextType {
   setPeriodSelectorModalOpen: (open: boolean) => void;
   connectModalOpen: boolean;
   setConnectModalOpen: (open: boolean) => void;
+  connectModalPlatform: string | null;
+  openConnectModal: (platformId?: string) => void;
+  closeConnectModal: () => void;
   revenueModalOpen: boolean;
   setRevenueModalOpen: (open: boolean) => void;
 
@@ -307,29 +316,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const session = localStorage.getItem('ah19_auth_session');
-      return session !== 'false';
+      const stored = localStorage.getItem('ah19_auth_session_data');
+      return session === 'true' && Boolean(stored);
     }
-    return true;
+    return false;
   });
 
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
     if (typeof window !== 'undefined') {
       const session = localStorage.getItem('ah19_auth_session');
-      if (session === 'false') return null;
-      try {
-        const stored = localStorage.getItem('ah19_auth_session_data');
-        if (stored) return JSON.parse(stored);
-      } catch {}
+      if (session === 'true') {
+        try {
+          const stored = localStorage.getItem('ah19_auth_session_data');
+          if (stored) return JSON.parse(stored);
+        } catch {}
+      }
     }
-    return {
-      id: 'usr_abismar_master',
-      name: 'Abismar Henrique',
-      email: 'abismar@life4billion.com',
-      role: 'Founder & CEO',
-      company: 'Life4Billion Holdings Ltd.',
-      company_id: 'comp_life4billion',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
-    };
+    return null;
   });
 
   // Verify active session on mount
@@ -339,11 +342,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentUser(user);
         setIsAuthenticated(true);
       } else {
-        const session = localStorage.getItem('ah19_auth_session');
-        if (session === 'false') {
-          setIsAuthenticated(false);
-          setCurrentUser(null);
-        }
+        setIsAuthenticated(false);
+        setCurrentUser(null);
       }
     });
   }, []);
@@ -367,9 +367,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     window.addEventListener('popstate', handlePopState);
 
-    // If user is not authenticated and is trying to access a private route, redirect to /login
+    // Strict URL guarding:
+    const currentPath = window.location.pathname.toLowerCase();
+
+    // 1. Visitante sem autenticação NUNCA vê dashboard ou partes internas
     if (!isAuthenticated) {
-      const currentPath = window.location.pathname.toLowerCase();
       if (
         !currentPath.includes('login') &&
         !currentPath.includes('register') &&
@@ -380,12 +382,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           window.history.replaceState({ authMode }, '', target);
         } catch {}
       }
+    } else {
+      // 2. Usuário autenticado mas sem onboarding NÃO pode acessar dashboard diretamente
+      if (!currentUser?.onboarding_completed) {
+        if (!currentPath.includes('onboarding')) {
+          try {
+            window.history.replaceState({ nav: 'onboarding' }, '', '/onboarding');
+          } catch {}
+        }
+      } else {
+        // 3. Usuário autenticado e com onboarding concluído
+        if (
+          currentPath.includes('login') ||
+          currentPath.includes('register') ||
+          currentPath.includes('forgot') ||
+          currentPath.includes('onboarding')
+        ) {
+          try {
+            window.history.replaceState({ nav: 'dashboard' }, '', '/dashboard');
+          } catch {}
+        }
+      }
     }
 
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [isAuthenticated, authMode]);
+  }, [isAuthenticated, currentUser?.onboarding_completed, authMode]);
 
   const login = async (email: string, pass: string): Promise<LoginResult> => {
     setAuthLoading(true);
@@ -397,7 +420,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (typeof window !== 'undefined') {
           localStorage.setItem('ah19_auth_session', 'true');
         }
-        navigate('dashboard');
+        if (!result.user.onboarding_completed) {
+          navigate('onboarding' as any);
+        } else {
+          navigate('dashboard');
+        }
         addToast({
           title: language === 'pt' ? 'Bem-vindo de volta!' : 'Welcome back!',
           description: `${result.user.name} • ${result.user.company}`,
@@ -406,6 +433,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } else if (result.error) {
         addToast({
           title: language === 'pt' ? 'Falha no login' : 'Login failed',
+          description: result.error,
+          type: 'error',
+        });
+      }
+      return result;
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const loginWithGoogle = async (params?: GoogleAuthParams): Promise<LoginResult> => {
+    setAuthLoading(true);
+    try {
+      const result = await serviceLoginWithGoogle(params);
+      if (result.success && result.user) {
+        setCurrentUser(result.user);
+        setIsAuthenticated(true);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('ah19_auth_session', 'true');
+        }
+        if (!result.user.onboarding_completed) {
+          navigate('onboarding' as any);
+        } else {
+          navigate('dashboard');
+        }
+        addToast({
+          title: language === 'pt' ? 'Conectado com Google!' : 'Connected with Google!',
+          description: `${result.user.name} • ${result.user.email}`,
+          type: 'success',
+        });
+      } else if (result.error) {
+        addToast({
+          title: language === 'pt' ? 'Falha no login com Google' : 'Google sign in failed',
           description: result.error,
           type: 'error',
         });
@@ -448,10 +508,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (typeof window !== 'undefined') {
             localStorage.setItem('ah19_auth_session', 'true');
           }
-          navigate('dashboard');
+          // New user MUST complete onboarding quiz
+          navigate('onboarding' as any);
           addToast({
-            title: t.auth_account_created_success,
-            description: `${result.user.name} (${result.user.company})`,
+            title: language === 'pt' ? 'Conta criada com sucesso!' : 'Account created successfully!',
+            description: language === 'pt' ? 'Vamos agora configurar seu SaaS.' : "Let's configure your SaaS.",
             type: 'success',
           });
         }
@@ -468,17 +529,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const completeOnboarding = async (responses: OnboardingResponses): Promise<void> => {
+    if (!currentUser) return;
+    setAuthLoading(true);
+    try {
+      await saveOnboardingResponses(currentUser.id, currentUser.company_id || '', responses);
+      const updatedUser: AuthUser = {
+        ...currentUser,
+        onboarding_completed: true,
+        onboarding_data: responses,
+      };
+      setCurrentUser(updatedUser);
+      navigate('dashboard');
+      addToast({
+        title: language === 'pt' ? 'Configuração concluída!' : 'Setup completed!',
+        description: language === 'pt' ? 'Seu workspace foi preparado com sucesso.' : 'Your workspace is ready.',
+        type: 'success',
+      });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const logout = async (): Promise<void> => {
     setAuthLoading(true);
     try {
       await logoutWithSupabase();
       setIsAuthenticated(false);
       setCurrentUser(null);
+      setOrdersList([]);
+      setProductsList([]);
+      setCustomersList([]);
+      setTransactionsList([]);
       setAuthModeState('login');
       if (typeof window !== 'undefined') {
         localStorage.setItem('ah19_auth_session', 'false');
+        localStorage.removeItem('ah19_auth_session_data');
         try {
-          window.history.pushState({ authMode: 'login' }, '', '/login');
+          window.history.replaceState({ authMode: 'login' }, '', '/login');
         } catch {}
       }
       addToast({
@@ -565,6 +653,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [periodSelectorModalOpen, setPeriodSelectorModalOpen] = useState(false);
   const [connectModalOpen, setConnectModalOpen] = useState(false);
+  const [connectModalPlatform, setConnectModalPlatform] = useState<string | null>(null);
+
+  const openConnectModal = (platformId?: string) => {
+    if (platformId) {
+      setConnectModalPlatform(platformId);
+    }
+    setConnectModalOpen(true);
+  };
+
+  const closeConnectModal = () => {
+    setConnectModalOpen(false);
+    setConnectModalPlatform(null);
+  };
+
   const [revenueModalOpen, setRevenueModalOpen] = useState(false);
 
   // Form Modals
@@ -617,12 +719,117 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedEvent, setSelectedEvent] = useState<EventStreamItem | null>(null);
 
   // Dynamic Collections (with LocalStorage / In-memory state)
-  const [ordersList, setOrdersList] = useState<OrderItem[]>(() => RAW_ORDERS);
-  const [productsList, setProductsList] = useState<ProductItem[]>(() =>
-    RAW_PRODUCTS.map((p, idx) => ({ ...p, stock: [142, 85, 34, 18, 9, 72][idx] || 50, minStock: 15 }))
-  );
-  const [customersList, setCustomersList] = useState<CustomerItem[]>(() => RAW_CUSTOMERS);
-  const [transactionsList, setTransactionsList] = useState<TransactionItem[]>(() => RAW_TRANSACTIONS);
+  const [ordersList, setOrdersList] = useState<OrderItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('ah19_auth_session_data');
+      if (stored) {
+        try {
+          const user = JSON.parse(stored);
+          if (user.id === 'usr_abismar_master') return RAW_ORDERS;
+          const compOrders = localStorage.getItem(`ah19_orders_${user.company_id || user.id}`);
+          if (compOrders) return JSON.parse(compOrders);
+          return [];
+        } catch {}
+      }
+    }
+    return [];
+  });
+
+  const [productsList, setProductsList] = useState<ProductItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('ah19_auth_session_data');
+      if (stored) {
+        try {
+          const user = JSON.parse(stored);
+          if (user.id === 'usr_abismar_master') {
+            return RAW_PRODUCTS.map((p, idx) => ({ ...p, stock: [142, 85, 34, 18, 9, 72][idx] || 50, minStock: 15 }));
+          }
+          const compProducts = localStorage.getItem(`ah19_products_${user.company_id || user.id}`);
+          if (compProducts) return JSON.parse(compProducts);
+          return [];
+        } catch {}
+      }
+    }
+    return [];
+  });
+
+  const [customersList, setCustomersList] = useState<CustomerItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('ah19_auth_session_data');
+      if (stored) {
+        try {
+          const user = JSON.parse(stored);
+          if (user.id === 'usr_abismar_master') return RAW_CUSTOMERS;
+          const compCust = localStorage.getItem(`ah19_customers_${user.company_id || user.id}`);
+          if (compCust) return JSON.parse(compCust);
+          return [];
+        } catch {}
+      }
+    }
+    return [];
+  });
+
+  const [transactionsList, setTransactionsList] = useState<TransactionItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('ah19_auth_session_data');
+      if (stored) {
+        try {
+          const user = JSON.parse(stored);
+          if (user.id === 'usr_abismar_master') return RAW_TRANSACTIONS;
+          const compTx = localStorage.getItem(`ah19_transactions_${user.company_id || user.id}`);
+          if (compTx) return JSON.parse(compTx);
+          return [];
+        } catch {}
+      }
+    }
+    return [];
+  });
+
+  // Switch workspace according to authenticated user
+  useEffect(() => {
+    if (!currentUser) {
+      setOrdersList([]);
+      setProductsList([]);
+      setCustomersList([]);
+      setTransactionsList([]);
+      return;
+    }
+
+    if (currentUser.id === 'usr_abismar_master') {
+      setOrdersList(RAW_ORDERS);
+      setProductsList(RAW_PRODUCTS.map((p, idx) => ({ ...p, stock: [142, 85, 34, 18, 9, 72][idx] || 50, minStock: 15 })));
+      setCustomersList(RAW_CUSTOMERS);
+      setTransactionsList(RAW_TRANSACTIONS);
+      setIntegrations(INITIAL_INTEGRATIONS);
+    } else {
+      const compId = currentUser.company_id || currentUser.id;
+      try {
+        const savedOrders = localStorage.getItem(`ah19_orders_${compId}`);
+        setOrdersList(savedOrders ? JSON.parse(savedOrders) : []);
+
+        const savedProducts = localStorage.getItem(`ah19_products_${compId}`);
+        setProductsList(savedProducts ? JSON.parse(savedProducts) : []);
+
+        const savedCustomers = localStorage.getItem(`ah19_customers_${compId}`);
+        setCustomersList(savedCustomers ? JSON.parse(savedCustomers) : []);
+
+        const savedTransactions = localStorage.getItem(`ah19_transactions_${compId}`);
+        setTransactionsList(savedTransactions ? JSON.parse(savedTransactions) : []);
+
+        const savedIntegrations = localStorage.getItem(`ah19_integrations_${compId}`);
+        setIntegrations(
+          savedIntegrations
+            ? JSON.parse(savedIntegrations)
+            : INITIAL_INTEGRATIONS.map((ig) => ({ ...ig, status: 'disconnected' as const, syncStatus: 'idle' as const }))
+        );
+      } catch {
+        setOrdersList([]);
+        setProductsList([]);
+        setCustomersList([]);
+        setTransactionsList([]);
+      }
+    }
+  }, [currentUser?.id, currentUser?.company_id]);
 
   const [integrations, setIntegrations] = useState<IntegrationItem[]>(INITIAL_INTEGRATIONS);
   const [eventStream, setEventStream] = useState<EventStreamItem[]>(INITIAL_EVENT_STREAM);
@@ -712,7 +919,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         id: `cust-${Date.now()}`,
         name: 'Cliente VIP',
         email: 'cliente@ah19.com',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+        avatar: undefined,
       },
       country: newOrder.country || 'Brasil',
       countryCode: newOrder.countryCode || 'BR',
@@ -842,9 +1049,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       name: newCust.name || 'Novo Cliente',
       email: newCust.email || 'cliente@exemplo.com',
       phone: newCust.phone || '+55 11 99999-9999',
-      avatar:
-        newCust.avatar ||
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+      avatar: newCust.avatar || undefined,
       country: newCust.country || 'Brasil',
       countryCode: newCust.countryCode || 'BR',
       flag: newCust.flag || '🇧🇷',
@@ -967,6 +1172,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Calculated KPIs
+  const isDemoAccount = currentUser?.id === 'usr_abismar_master';
+
   const kpis: KPIData[] = useMemo(() => {
     const share = storeConfig.exactShare ?? storeConfig.share;
     const baseRev = dateConfig.revenue || 78452.36;
@@ -974,21 +1181,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const baseOrders = dateConfig.orders || 614;
 
     const calculatedRevenue =
-      dataMode === 'demo'
+      isDemoAccount && dataMode === 'demo'
         ? baseRev * share
         : ordersList.reduce((acc, o) => acc + (o.rawAmount || 0), 0);
 
     const calculatedProfit =
-      dataMode === 'demo'
+      isDemoAccount && dataMode === 'demo'
         ? baseProfit * share
         : calculatedRevenue * 0.32;
 
     const calculatedOrders =
-      dataMode === 'demo'
+      isDemoAccount && dataMode === 'demo'
         ? Math.max(1, Math.round(baseOrders * share))
         : ordersList.length;
 
     const calculatedAov = calculatedOrders > 0 ? calculatedRevenue / calculatedOrders : 0;
+    const hasData = isDemoAccount || calculatedOrders > 0;
 
     return [
       {
@@ -996,11 +1204,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         name: t.dash_total_revenue,
         value: formatCurrency(calculatedRevenue),
         rawNumericValue: calculatedRevenue,
-        change: dateConfig.changeRevenue,
-        changeValue: 18.4,
+        change: hasData ? dateConfig.changeRevenue : '0.0%',
+        changeValue: hasData ? 18.4 : 0,
         isPositive: true,
         period: t.dash_vs_previous,
-        sparkline: [28000, 32000, 30500, 36000, 34200, 40100, calculatedRevenue].map((v) => v * currencyInfo.rate),
+        sparkline: hasData
+          ? [28000, 32000, 30500, 36000, 34200, 40100, calculatedRevenue].map((v) => v * currencyInfo.rate)
+          : [0, 0, 0, 0, 0, 0, 0],
         color: '#FFD000',
         category: 'revenue',
       },
@@ -1009,11 +1219,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         name: t.dash_net_profit,
         value: formatCurrency(calculatedProfit),
         rawNumericValue: calculatedProfit,
-        change: dateConfig.changeProfit,
-        changeValue: 21.2,
+        change: hasData ? dateConfig.changeProfit : '0.0%',
+        changeValue: hasData ? 21.2 : 0,
         isPositive: true,
         period: t.dash_vs_previous,
-        sparkline: [8500, 9200, 8800, 11000, 10500, 12600, calculatedProfit].map((v) => v * currencyInfo.rate),
+        sparkline: hasData
+          ? [8500, 9200, 8800, 11000, 10500, 12600, calculatedProfit].map((v) => v * currencyInfo.rate)
+          : [0, 0, 0, 0, 0, 0, 0],
         color: '#FFD000',
         category: 'profit',
       },
@@ -1022,11 +1234,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         name: t.dash_sales_count,
         value: calculatedOrders.toLocaleString(),
         rawNumericValue: calculatedOrders,
-        change: dateConfig.changeOrders,
-        changeValue: 14.8,
+        change: hasData ? dateConfig.changeOrders : '0.0%',
+        changeValue: hasData ? 14.8 : 0,
         isPositive: true,
         period: t.dash_vs_previous,
-        sparkline: [190, 220, 210, 260, 245, 290, calculatedOrders],
+        sparkline: hasData ? [190, 220, 210, 260, 245, 290, calculatedOrders] : [0, 0, 0, 0, 0, 0, 0],
         color: '#FFFFFF',
         category: 'orders',
       },
@@ -1035,45 +1247,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         name: t.dash_avg_ticket,
         value: formatCurrency(calculatedAov),
         rawNumericValue: calculatedAov,
-        change: '↑ 6.4%',
-        changeValue: 6.4,
+        change: hasData ? '↑ 6.4%' : '0.0%',
+        changeValue: hasData ? 6.4 : 0,
         isPositive: true,
         period: t.dash_vs_previous,
-        sparkline: [120, 124, 128, 131, 134, 135, calculatedAov].map((v) => v * currencyInfo.rate),
+        sparkline: hasData
+          ? [120, 124, 128, 131, 134, 135, calculatedAov].map((v) => v * currencyInfo.rate)
+          : [0, 0, 0, 0, 0, 0, 0],
         color: '#FFD000',
         category: 'revenue',
       },
       {
         id: 'customers',
         name: t.dash_total_customers,
-        value: (dataMode === 'demo' ? Math.round(customersList.length * share) : customersList.length).toLocaleString(),
-        rawNumericValue: dataMode === 'demo' ? Math.round(customersList.length * share) : customersList.length,
-        change: '↑ 12.0%',
-        changeValue: 12.0,
+        value: (isDemoAccount && dataMode === 'demo' ? Math.round(customersList.length * share) : customersList.length).toLocaleString(),
+        rawNumericValue: isDemoAccount && dataMode === 'demo' ? Math.round(customersList.length * share) : customersList.length,
+        change: hasData ? '↑ 12.0%' : '0.0%',
+        changeValue: hasData ? 12.0 : 0,
         isPositive: true,
         period: t.dash_vs_previous,
-        sparkline: [180, 195, 210, 225, 240, 255, customersList.length],
+        sparkline: hasData ? [180, 195, 210, 225, 240, 255, customersList.length] : [0, 0, 0, 0, 0, 0, 0],
         color: '#FFFFFF',
         category: 'orders',
       },
       {
         id: 'products_sold',
         name: t.dash_products_sold,
-        value: (dataMode === 'demo' ? Math.round(calculatedOrders * 1.8) : productsList.reduce((a, b) => a + (b.unitsSold || 0), 0)).toLocaleString(),
-        rawNumericValue: dataMode === 'demo' ? Math.round(calculatedOrders * 1.8) : productsList.reduce((a, b) => a + (b.unitsSold || 0), 0),
-        change: '↑ 19.5%',
-        changeValue: 19.5,
+        value: (isDemoAccount && dataMode === 'demo' ? Math.round(calculatedOrders * 1.8) : productsList.reduce((a, b) => a + (b.unitsSold || 0), 0)).toLocaleString(),
+        rawNumericValue: isDemoAccount && dataMode === 'demo' ? Math.round(calculatedOrders * 1.8) : productsList.reduce((a, b) => a + (b.unitsSold || 0), 0),
+        change: hasData ? '↑ 19.5%' : '0.0%',
+        changeValue: hasData ? 19.5 : 0,
         isPositive: true,
         period: t.dash_vs_previous,
-        sparkline: [310, 360, 390, 440, 480, 520, 600],
+        sparkline: hasData ? [310, 360, 390, 440, 480, 520, 600] : [0, 0, 0, 0, 0, 0, 0],
         color: '#FFD000',
         category: 'revenue',
       },
     ];
-  }, [dataMode, ordersList, productsList, customersList, dateConfig, storeConfig, formatCurrency, currencyInfo, t]);
+  }, [isDemoAccount, dataMode, ordersList, productsList, customersList, dateConfig, storeConfig, formatCurrency, currencyInfo, t]);
 
   // Filtered Chart Data Points
   const chartData: ChartDataPoint[] = useMemo(() => {
+    if (!isDemoAccount && ordersList.length === 0) {
+      return RAW_DAILY_CHART.map((point) => ({
+        ...point,
+        revenue: 0,
+        profit: 0,
+        spend: 0,
+        orders: 0,
+        refunds: 0,
+        discounts: 0,
+        taxes: 0,
+        shipping: 0,
+      }));
+    }
     return RAW_DAILY_CHART.map((point) => ({
       ...point,
       revenue: Math.round(point.revenue * storeConfig.share * (dateConfig.days > 7 ? 2.2 : 1)),
@@ -1085,10 +1312,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       taxes: Math.round(point.taxes * storeConfig.share),
       shipping: Math.round(point.shipping * storeConfig.share),
     }));
-  }, [storeConfig, dateConfig]);
+  }, [isDemoAccount, ordersList.length, storeConfig, dateConfig]);
 
   // Filtered Countries
   const countries: CountrySale[] = useMemo(() => {
+    if (!isDemoAccount && ordersList.length === 0) {
+      return [];
+    }
     return RAW_COUNTRIES.map((c) => {
       const adjustedAmount = c.rawAmount * effectiveMultiplier;
       const adjustedOrders = Math.round(c.orders * effectiveMultiplier);
@@ -1101,11 +1331,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         adSpend: c.adSpend * effectiveMultiplier,
       };
     });
-  }, [effectiveMultiplier, formatCurrency]);
+  }, [isDemoAccount, ordersList.length, effectiveMultiplier, formatCurrency]);
 
   const selectedCountry = useMemo(() => {
     if (activeNav === 'countries' && selectedEntityId) {
-      return countries.find((c) => c.code.toLowerCase() === selectedEntityId.toLowerCase()) || countries[0];
+      return countries.find((c) => c.code.toLowerCase() === selectedEntityId.toLowerCase()) || countries[0] || null;
     }
     return null;
   }, [activeNav, selectedEntityId, countries]);
@@ -1136,14 +1366,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Filtered Refunds
   const refunds: RefundItem[] = useMemo(() => {
+    if (!isDemoAccount && ordersList.length === 0) {
+      return [];
+    }
     if (selectedStore !== 'all') {
       return RAW_REFUNDS.filter((r) => r.storeId === selectedStore);
     }
     return RAW_REFUNDS;
-  }, [selectedStore]);
+  }, [isDemoAccount, ordersList.length, selectedStore]);
 
   // Filtered Ad Platforms
   const adPlatforms: AdPlatformMetric[] = useMemo(() => {
+    if (!isDemoAccount && ordersList.length === 0) {
+      return [];
+    }
     return RAW_AD_PLATFORMS.map((p) => {
       const scaledSpend = p.rawSpend * effectiveMultiplier;
       const scaledRevenue = p.rawRevenue * effectiveMultiplier;
@@ -1155,7 +1391,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         revenue: formatCurrency(scaledRevenue),
       };
     });
-  }, [effectiveMultiplier, formatCurrency]);
+  }, [isDemoAccount, ordersList.length, effectiveMultiplier, formatCurrency]);
 
   const STORES_LIST = [
     { id: 'all' as StoreId, name: t.all_stores, badge: 'GLOBAL' },
@@ -1262,7 +1498,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: `cust-${Date.now()}`,
           name: newDbOrder.customer_name || 'Stripe Customer',
           email: newDbOrder.customer_email || 'client@example.com',
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+          avatar: undefined,
         },
         country: newDbOrder.country || 'Global',
         countryCode: newDbOrder.country_code || 'US',
@@ -1329,7 +1565,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 id: `cust-${Date.now()}`,
                 name: o.customer_name || 'Stripe Customer',
                 email: o.customer_email || 'client@example.com',
-                avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+                avatar: undefined,
               },
               country: o.country || 'United States',
               countryCode: o.country_code || 'US',
@@ -1430,9 +1666,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setAuthMode,
         authLoading,
         login,
+        loginWithGoogle,
         registerUser,
         logout,
         resetPassword,
+        completeOnboarding,
         activeNav,
         activeSubTab,
         selectedEntityId,
@@ -1512,6 +1750,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setPeriodSelectorModalOpen,
         connectModalOpen,
         setConnectModalOpen,
+        connectModalPlatform,
+        openConnectModal,
+        closeConnectModal,
         revenueModalOpen,
         setRevenueModalOpen,
         confirmModal,

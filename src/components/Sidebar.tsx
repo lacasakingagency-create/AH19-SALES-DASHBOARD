@@ -16,7 +16,7 @@ import {
 import { AH19Logo } from './brand/AH19Logo';
 import { useApp } from '../context/AppContext';
 import { MainNavId } from '../types';
-import { getInitials } from '../utils/avatarUtils';
+import { getInitials, getFirstLetter } from '../utils/avatarUtils';
 import { PWAInstallButton } from './PWAInstallButton';
 
 interface SidebarProps {
@@ -68,23 +68,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMob
 
       <aside
         id="app-sidebar"
-        className={`fixed lg:static top-0 left-0 bottom-0 z-50 w-[245px] shrink-0 bg-[#000000] border-r border-[#1C1C1C] flex flex-col justify-between select-none transition-transform duration-200 ease-out ${
+        className={`fixed lg:static top-0 left-0 bottom-0 z-50 w-[260px] h-full shrink-0 bg-[#000000] border-r border-[#1C1C1C] flex flex-col justify-between overflow-hidden select-none transition-transform duration-200 ease-out ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* Top Branding & Navigation */}
-        <div className="flex flex-col">
-          {/* Brand Header with Professional AH19 Logo and Human Purpose Slogan */}
-          <div
-            id="sidebar-brand-header"
-            onClick={() => handleNavClick('dashboard')}
-            className="h-20 px-4 flex items-center border-b border-[#1C1C1C] cursor-pointer hover:bg-[#0A0A0A] transition-colors"
-          >
-            <AH19Logo size="md" sloganLanguage={language} showSlogan={true} />
-          </div>
+        {/* Top Brand Header */}
+        <div
+          id="sidebar-brand-header"
+          onClick={() => handleNavClick('dashboard')}
+          className="shrink-0 h-20 px-4 flex items-center border-b border-[#1C1C1C] cursor-pointer hover:bg-[#0A0A0A] transition-colors"
+        >
+          <AH19Logo size="md" sloganLanguage={language} showSlogan={true} />
+        </div>
 
+        {/* Scrollable Middle Navigation Area */}
+        <div className="flex-1 overflow-y-auto min-h-0 py-3 space-y-2">
           {/* Quick Search */}
-          <div className="px-3 pt-4 pb-2">
+          <div className="px-3">
             <button
               id="sidebar-search-btn"
               onClick={() => setGlobalSearchOpen(true)}
@@ -101,7 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMob
           </div>
 
           {/* Navigation Items */}
-          <nav id="sidebar-navigation" className="px-3 py-2 space-y-1" aria-label="Main Navigation">
+          <nav id="sidebar-navigation" className="px-3 space-y-1" aria-label="Main Navigation">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isSelected =
@@ -138,21 +138,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMob
           </nav>
         </div>
 
-        {/* Bottom Area: Language Selector & User Profile */}
-        <div className="p-3 border-t border-[#1C1C1C] space-y-3">
-          {/* Language Switcher */}
-          <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#0A0A0A] border border-[#1E1E1E]">
+        {/* Pinned Bottom Area: User Profile & Logout Buttons (Always Visible) */}
+        <div className="shrink-0 p-3 border-t border-[#1C1C1C] bg-[#050505] space-y-2">
+          {/* Language Switcher - Clean Full Width */}
+          <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-[#0A0A0A] border border-[#1E1E1E]">
             <div className="flex items-center gap-2 text-xs text-neutral-400">
               <Globe className="w-3.5 h-3.5 text-[#FFE76A]" />
-              <span>{t.language}:</span>
+              <span className="font-medium">{t.language}:</span>
             </div>
             <div className="flex items-center gap-1">
               <button
                 id="sidebar-lang-pt"
                 onClick={() => setLanguage('pt')}
-                className={`px-2 py-0.5 rounded text-[11px] font-extrabold transition-all ${
+                className={`px-2 py-0.5 rounded text-[10px] font-extrabold transition-all ${
                   language === 'pt'
-                    ? 'btn-gold-blend shadow-sm'
+                    ? 'btn-gold-blend shadow-sm text-black'
                     : 'text-neutral-400 hover:text-white'
                 }`}
               >
@@ -161,9 +161,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMob
               <button
                 id="sidebar-lang-en"
                 onClick={() => setLanguage('en')}
-                className={`px-2 py-0.5 rounded text-[11px] font-extrabold transition-all ${
+                className={`px-2 py-0.5 rounded text-[10px] font-extrabold transition-all ${
                   language === 'en'
-                    ? 'btn-gold-blend shadow-sm'
+                    ? 'btn-gold-blend shadow-sm text-black'
                     : 'text-neutral-400 hover:text-white'
                 }`}
               >
@@ -172,47 +172,68 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMob
             </div>
           </div>
 
-          {/* Install Desktop App PWA */}
-          <div className="mb-2">
-            <PWAInstallButton variant="sidebar" />
-          </div>
+          {/* Full-Width PWA Install on Computer Button */}
+          <PWAInstallButton variant="sidebar" />
 
-          {/* User Profile Card & Logout */}
-          <div className="p-2.5 rounded-xl bg-[#0A0A0A] border border-[#1E1E1E] flex items-center justify-between">
-            <div
-              className="flex items-center gap-2.5 min-w-0 cursor-pointer"
-              onClick={() => handleNavClick('settings')}
-            >
+          {/* User Profile Button */}
+          <button
+            id="sidebar-profile-btn"
+            type="button"
+            onClick={() => handleNavClick('settings')}
+            title={language === 'pt' ? 'Meu Perfil & Configurações' : 'My Profile & Settings'}
+            className="w-full p-2.5 rounded-xl bg-[#0C0C0C] hover:bg-[#141414] border border-[#222222] hover:border-[#FFD000]/70 transition-all flex items-center justify-between text-left cursor-pointer group shadow-sm"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
               {currentUser?.avatar ? (
-                <img
-                  src={currentUser.avatar}
-                  alt={currentUser?.name || 'User'}
-                  className="w-8 h-8 rounded-lg object-cover border border-[#2A2A2A]"
-                />
+                <div className="relative w-9 h-9 rounded-lg overflow-hidden shrink-0">
+                  <img
+                    src={currentUser.avatar}
+                    alt={currentUser?.name || 'User'}
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                    className="w-full h-full object-cover border border-[#2A2A2A]"
+                  />
+                  <div className="w-9 h-9 rounded-lg bg-[#141414] border border-[#2A2A2A] flex items-center justify-center font-mono font-bold text-xs text-[#FFD000]">
+                    {getFirstLetter(currentUser?.name || currentUser?.email || 'U')}
+                  </div>
+                </div>
               ) : (
-                <div className="w-8 h-8 rounded-lg bg-[#141414] border border-[#2A2A2A] flex items-center justify-center font-mono font-bold text-xs text-[#FFD000] shrink-0">
-                  {getInitials(currentUser?.name || 'Abismar Henrique')}
+                <div className="w-9 h-9 rounded-lg bg-[#141414] border border-[#2A2A2A] flex items-center justify-center font-mono font-bold text-sm text-[#FFD000] shrink-0 group-hover:border-[#FFD000]/50 transition-colors">
+                  {getFirstLetter(currentUser?.name || currentUser?.email || 'U')}
                 </div>
               )}
               <div className="min-w-0">
-                <p className="text-xs font-bold text-white truncate">
-                  {currentUser?.name || 'Abismar H.'}
+                <p className="text-xs font-bold text-white group-hover:text-[#FFE76A] transition-colors truncate">
+                  {currentUser?.name || currentUser?.email?.split('@')[0] || 'Usuário'}
                 </p>
-                <p className="text-[10px] text-[#FFD000] truncate font-medium">
-                  {currentUser?.company || 'Life4Billion'}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-[#FFD000] truncate font-medium">
+                    {currentUser?.company || 'Life4Billion'}
+                  </span>
+                  <span className="text-[9px] text-neutral-500 font-mono">
+                    • {language === 'pt' ? 'Perfil' : 'Profile'}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <button
-              id="sidebar-logout-btn"
-              onClick={logout}
-              title={`${t.nav_logout} (Supabase Auth)`}
-              className="p-1.5 rounded-lg text-neutral-400 hover:text-[#FFD000] hover:bg-[#141414] transition-colors cursor-pointer"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
+            <div className="w-7 h-7 rounded-lg bg-[#141414] border border-[#252525] group-hover:border-[#FFD000]/40 flex items-center justify-center text-neutral-400 group-hover:text-[#FFD000] transition-colors shrink-0">
+              <Settings className="w-3.5 h-3.5" />
+            </div>
+          </button>
+
+          {/* Logout Button in Sidebar */}
+          <button
+            id="sidebar-logout-btn"
+            type="button"
+            onClick={logout}
+            title={language === 'pt' ? 'Sair da Conta (Encerrar sessão)' : 'Sign Out / Log Out'}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-red-950/25 hover:bg-red-900/40 text-red-400 hover:text-red-300 border border-red-900/50 hover:border-red-600/70 text-xs font-bold transition-all cursor-pointer shadow-sm group"
+          >
+            <LogOut className="w-4 h-4 text-red-400 group-hover:-translate-x-0.5 transition-transform" />
+            <span>{language === 'pt' ? 'Sair da Conta' : 'Sign Out / Log Out'}</span>
+          </button>
         </div>
       </aside>
     </>

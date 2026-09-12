@@ -108,6 +108,18 @@ export interface Translations {
   sales_confirm_delete: string;
   sales_confirm_delete_msg: string;
   sales_no_orders: string;
+  sales_tab_funnel: string;
+  sales_funnel_title: string;
+  sales_funnel_subtitle: string;
+  geo_funnel_title: string;
+  geo_funnel_subtitle: string;
+  funnel_customer_stages: string;
+  funnel_step_visitors: string;
+  funnel_step_views: string;
+  funnel_step_cart: string;
+  funnel_step_checkout: string;
+  funnel_step_purchase: string;
+  funnel_step_retention: string;
 
   // Customers
   cust_title: string;
@@ -291,6 +303,9 @@ export interface Translations {
   auth_forgot_password: string;
   auth_sign_in_btn: string;
   auth_sign_up_btn: string;
+  auth_continue_google: string;
+  auth_signup_google: string;
+  auth_or_divider: string;
   auth_have_account: string;
   auth_no_account: string;
   auth_sign_up_link: string;
@@ -443,6 +458,18 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     sales_confirm_delete: 'Confirmar Exclusão de Venda',
     sales_confirm_delete_msg: 'Tem certeza de que deseja excluir permanentemente esta venda? Esta ação não pode ser desfeita.',
     sales_no_orders: 'Nenhuma venda encontrada com os filtros aplicados.',
+    sales_tab_funnel: 'Funil de Vendas',
+    sales_funnel_title: 'Funil de Conversão & Jornada do Cliente',
+    sales_funnel_subtitle: 'Visão aprofundada de todas as etapas do cliente: tráfego, consideração, intenção, checkout, venda e recompra.',
+    geo_funnel_title: 'Funil da Jornada do Cliente Geográfico',
+    geo_funnel_subtitle: 'Acompanhe a retenção, conversão e pontos de atrito em cada etapa por país e mercado regional.',
+    funnel_customer_stages: 'Todas as Etapas do Cliente',
+    funnel_step_visitors: '1. Descoberta & Visitantes',
+    funnel_step_views: '2. Visualização de Produto',
+    funnel_step_cart: '3. Adição ao Carrinho',
+    funnel_step_checkout: '4. Checkout Iniciado',
+    funnel_step_purchase: '5. Venda Concluída',
+    funnel_step_retention: '6. Recompra & Retenção',
 
     // Customers
     cust_title: 'Gestão de Clientes',
@@ -626,6 +653,9 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     auth_forgot_password: 'Esqueceu sua senha?',
     auth_sign_in_btn: 'Entrar na Plataforma',
     auth_sign_up_btn: 'Criar Minha Conta',
+    auth_continue_google: 'Continuar com Google',
+    auth_signup_google: 'Cadastrar com Google',
+    auth_or_divider: 'ou continue com e-mail',
     auth_have_account: 'Já possui uma conta ativa?',
     auth_no_account: 'Ainda não tem conta?',
     auth_sign_up_link: 'Cadastre-se gratuitamente',
@@ -777,6 +807,18 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     sales_confirm_delete: 'Confirm Sale Deletion',
     sales_confirm_delete_msg: 'Are you sure you want to permanently delete this sale? This action cannot be undone.',
     sales_no_orders: 'No sales found matching the selected filters.',
+    sales_tab_funnel: 'Sales Funnel',
+    sales_funnel_title: 'Conversion Funnel & Customer Journey',
+    sales_funnel_subtitle: 'In-depth overview across all customer lifecycle stages: discovery, consideration, intent, checkout, purchase, and retention.',
+    geo_funnel_title: 'Geographic Customer Journey Funnel',
+    geo_funnel_subtitle: 'Monitor retention, step-by-step conversion, and regional friction points by country and market.',
+    funnel_customer_stages: 'All Customer Stages',
+    funnel_step_visitors: '1. Discovery & Visitors',
+    funnel_step_views: '2. Product Page Views',
+    funnel_step_cart: '3. Add to Cart',
+    funnel_step_checkout: '4. Initiated Checkout',
+    funnel_step_purchase: '5. Completed Purchase',
+    funnel_step_retention: '6. Repeat & Retention',
 
     // Customers
     cust_title: 'Customer Directory',
@@ -960,6 +1002,9 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     auth_forgot_password: 'Forgot your password?',
     auth_sign_in_btn: 'Sign In',
     auth_sign_up_btn: 'Create Account',
+    auth_continue_google: 'Continue with Google',
+    auth_signup_google: 'Sign up with Google',
+    auth_or_divider: 'or continue with email',
     auth_have_account: 'Already have an active account?',
     auth_no_account: "Don't have an account yet?",
     auth_sign_up_link: 'Sign up for free',

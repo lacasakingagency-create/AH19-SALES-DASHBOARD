@@ -35,10 +35,15 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClos
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150 select-none">
+    <div
+      id="pwa-install-modal-overlay"
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150 select-none cursor-pointer"
+    >
       <div
         id="pwa-install-modal-container"
-        className="bg-[#0A0A0A] border border-[#222222] rounded-2xl max-w-lg w-full p-6 shadow-2xl relative text-white"
+        onClick={(e) => e.stopPropagation()}
+        className="bg-[#0A0A0A] border border-[#222222] rounded-2xl max-w-lg w-full p-6 shadow-2xl relative text-white cursor-default"
       >
         {/* Close Button */}
         <button

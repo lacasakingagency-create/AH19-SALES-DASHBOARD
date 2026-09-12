@@ -13,7 +13,7 @@ import {
   ArrowRight,
   Clock,
 } from 'lucide-react';
-import { getInitials } from '../../utils/avatarUtils';
+import { getInitials, getFirstLetter } from '../../utils/avatarUtils';
 
 export const CustomerProfileModal: React.FC = () => {
   const { selectedCustomer, setSelectedCustomer, formatCurrency, setSelectedOrder, orders, t } = useApp();
@@ -34,16 +34,19 @@ export const CustomerProfileModal: React.FC = () => {
         {/* Header with Avatar & Status */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-[#1C1C1C] bg-[#0E0E0E]">
           <div className="flex items-center gap-4">
-            {selectedCustomer.avatar ? (
+            {selectedCustomer.avatar && !selectedCustomer.avatar.includes('images.unsplash.com') ? (
               <img
                 src={selectedCustomer.avatar}
                 alt={selectedCustomer.name}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
                 className="w-14 h-14 rounded-xl object-cover border border-[#2A2A2A] shadow-md shrink-0"
                 referrerPolicy="no-referrer"
               />
             ) : (
               <div className="w-14 h-14 rounded-xl bg-[#141414] border border-[#2A2A2A] flex items-center justify-center font-mono font-bold text-lg text-[#FFD000] shrink-0">
-                {getInitials(selectedCustomer.name)}
+                {getFirstLetter(selectedCustomer.name || 'U')}
               </div>
             )}
             <div>

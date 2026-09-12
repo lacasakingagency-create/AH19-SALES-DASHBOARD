@@ -186,10 +186,15 @@ export const PeriodSelectorModal: React.FC<PeriodSelectorModalProps> = ({ isOpen
   const previewOrders = currentConfig?.orders || 614;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+    <div
+      id="period-selector-overlay"
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150 cursor-pointer"
+    >
       <div
         id="period-selector-modal"
-        className="bg-[#0A0A0A] border border-[#222222] rounded-2xl w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+        className="bg-[#0A0A0A] border border-[#222222] rounded-2xl w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 cursor-default"
       >
         {/* Header */}
         <div className="px-6 py-4 border-b border-[#1C1C1C] flex items-center justify-between bg-[#0E0E0E]">

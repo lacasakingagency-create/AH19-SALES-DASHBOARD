@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Calendar,
   Store,
@@ -46,6 +46,61 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenMobileMenu }) => {
   const [currencyDropdownOpen, setCurrencyDropdownOpen] = useState(false);
   const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
+
+  // References for click-outside and auto-hide detection
+  const dateContainerRef = useRef<HTMLDivElement>(null);
+  const storeContainerRef = useRef<HTMLDivElement>(null);
+  const currencyContainerRef = useRef<HTMLDivElement>(null);
+  const notifContainerRef = useRef<HTMLDivElement>(null);
+
+  const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const cancelCloseTimer = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  const scheduleClose = (closeFn: () => void, delay = 150) => {
+    cancelCloseTimer();
+    closeTimerRef.current = setTimeout(() => {
+      closeFn();
+    }, delay);
+  };
+
+  const closeAllDropdowns = () => {
+    cancelCloseTimer();
+    setDateDropdownOpen(false);
+    setStoreDropdownOpen(false);
+    setCurrencyDropdownOpen(false);
+    setNotifDropdownOpen(false);
+  };
+
+  // Close automatically on click outside
+  useEffect(() => {
+    const handleDocumentMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (dateDropdownOpen && dateContainerRef.current && !dateContainerRef.current.contains(target)) {
+        setDateDropdownOpen(false);
+      }
+      if (storeDropdownOpen && storeContainerRef.current && !storeContainerRef.current.contains(target)) {
+        setStoreDropdownOpen(false);
+      }
+      if (currencyDropdownOpen && currencyContainerRef.current && !currencyContainerRef.current.contains(target)) {
+        setCurrencyDropdownOpen(false);
+      }
+      if (notifDropdownOpen && notifContainerRef.current && !notifContainerRef.current.contains(target)) {
+        setNotifDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleDocumentMouseDown);
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentMouseDown);
+      cancelCloseTimer();
+    };
+  }, [dateDropdownOpen, storeDropdownOpen, currencyDropdownOpen, notifDropdownOpen]);
 
   const currencies: { code: CurrencyCode; symbol: string; label: string }[] = [
     { code: 'USD', symbol: '$', label: 'USD ($)' },
@@ -122,16 +177,26 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenMobileMenu }) => {
           </button>
 
           {/* Date Selector */}
-          <div className="relative">
+          <div
+            ref={dateContainerRef}
+            onMouseEnter={cancelCloseTimer}
+            onMouseLeave={() => {
+              if (dateDropdownOpen) {
+                scheduleClose(() => setDateDropdownOpen(false));
+              }
+            }}
+            className="relative"
+          >
             <button
               id="header-date-selector"
               onClick={() => {
+                cancelCloseTimer();
                 setDateDropdownOpen(!dateDropdownOpen);
                 setStoreDropdownOpen(false);
                 setCurrencyDropdownOpen(false);
                 setNotifDropdownOpen(false);
               }}
-              className="h-9 px-3 bg-[#0A0A0A] hover:bg-[#141414] border border-[#222222] hover:border-[#FFD000]/60 rounded-lg text-xs font-medium text-neutral-200 flex items-center gap-2 transition-colors shadow-sm"
+              className="h-9 px-3 bg-[#0A0A0A] hover:bg-[#141414] border border-[#222222] hover:border-[#FFD000]/60 rounded-lg text-xs font-medium text-neutral-200 flex items-center gap-2 transition-colors shadow-sm cursor-pointer"
             >
               <Calendar className="w-3.5 h-3.5 text-[#FFE76A]" />
               <span className="font-semibold">{datePresets.find((d) => d.id === dateRange)?.label || dateRangeLabel}</span>
@@ -149,6 +214,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenMobileMenu }) => {
                   </span>
                   <button
                     onClick={() => {
+                      cancelCloseTimer();
                       setDateDropdownOpen(false);
                       setPeriodSelectorModalOpen(true);
                     }}
@@ -162,6 +228,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenMobileMenu }) => {
                   <button
                     id="open-full-calendar-btn"
                     onClick={() => {
+                      cancelCloseTimer();
                       setDateDropdownOpen(false);
                       setPeriodSelectorModalOpen(true);
                     }}
@@ -180,6 +247,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenMobileMenu }) => {
                     <button
                       key={preset.id}
                       onClick={() => {
+                        cancelCloseTimer();
                         if (preset.id === 'custom') {
                           setDateDropdownOpen(false);
                           setPeriodSelectorModalOpen(true);
@@ -204,16 +272,26 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenMobileMenu }) => {
           </div>
 
           {/* Store Selector */}
-          <div className="relative">
+          <div
+            ref={storeContainerRef}
+            onMouseEnter={cancelCloseTimer}
+            onMouseLeave={() => {
+              if (storeDropdownOpen) {
+                scheduleClose(() => setStoreDropdownOpen(false));
+              }
+            }}
+            className="relative"
+          >
             <button
               id="header-store-selector"
               onClick={() => {
+                cancelCloseTimer();
                 setStoreDropdownOpen(!storeDropdownOpen);
                 setDateDropdownOpen(false);
                 setCurrencyDropdownOpen(false);
                 setNotifDropdownOpen(false);
               }}
-              className="h-9 px-3 bg-[#0A0A0A] hover:bg-[#141414] border border-[#222222] hover:border-[#FFD000]/60 rounded-lg text-xs font-medium text-neutral-200 flex items-center gap-2 transition-colors max-w-[170px] shadow-sm"
+              className="h-9 px-3 bg-[#0A0A0A] hover:bg-[#141414] border border-[#222222] hover:border-[#FFD000]/60 rounded-lg text-xs font-medium text-neutral-200 flex items-center gap-2 transition-colors max-w-[170px] shadow-sm cursor-pointer"
             >
               <Store className="w-3.5 h-3.5 text-[#FFE76A] shrink-0" />
               <span className="truncate font-semibold">{currentStoreName}</span>
@@ -232,6 +310,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenMobileMenu }) => {
                   <button
                     key={store.id}
                     onClick={() => {
+                      cancelCloseTimer();
                       setSelectedStore(store.id);
                       setStoreDropdownOpen(false);
                     }}
@@ -250,16 +329,26 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenMobileMenu }) => {
           </div>
 
           {/* Currency Selector */}
-          <div className="relative">
+          <div
+            ref={currencyContainerRef}
+            onMouseEnter={cancelCloseTimer}
+            onMouseLeave={() => {
+              if (currencyDropdownOpen) {
+                scheduleClose(() => setCurrencyDropdownOpen(false));
+              }
+            }}
+            className="relative"
+          >
             <button
               id="header-currency-selector"
               onClick={() => {
+                cancelCloseTimer();
                 setCurrencyDropdownOpen(!currencyDropdownOpen);
                 setDateDropdownOpen(false);
                 setStoreDropdownOpen(false);
                 setNotifDropdownOpen(false);
               }}
-              className="h-9 px-2.5 bg-[#0A0A0A] hover:bg-[#141414] border border-[#222222] hover:border-[#FFD000]/60 rounded-lg text-xs font-bold text-neutral-200 flex items-center gap-1.5 transition-colors font-mono shadow-sm"
+              className="h-9 px-2.5 bg-[#0A0A0A] hover:bg-[#141414] border border-[#222222] hover:border-[#FFD000]/60 rounded-lg text-xs font-bold text-neutral-200 flex items-center gap-1.5 transition-colors font-mono shadow-sm cursor-pointer"
             >
               <DollarSign className="w-3.5 h-3.5 text-[#FFE76A]" />
               <span>{selectedCurrency}</span>
@@ -275,6 +364,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenMobileMenu }) => {
                   <button
                     key={curr.code}
                     onClick={() => {
+                      cancelCloseTimer();
                       setSelectedCurrency(curr.code);
                       setCurrencyDropdownOpen(false);
                     }}
@@ -308,16 +398,26 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenMobileMenu }) => {
           </button>
 
           {/* Notifications Dropdown */}
-          <div className="relative">
+          <div
+            ref={notifContainerRef}
+            onMouseEnter={cancelCloseTimer}
+            onMouseLeave={() => {
+              if (notifDropdownOpen) {
+                scheduleClose(() => setNotifDropdownOpen(false));
+              }
+            }}
+            className="relative"
+          >
             <button
               id="header-notifications-btn"
               onClick={() => {
+                cancelCloseTimer();
                 setNotifDropdownOpen(!notifDropdownOpen);
                 setDateDropdownOpen(false);
                 setStoreDropdownOpen(false);
                 setCurrencyDropdownOpen(false);
               }}
-              className="h-9 w-9 bg-[#0A0A0A] hover:bg-[#141414] border border-[#222222] hover:border-[#FFD000]/60 rounded-lg flex items-center justify-center text-neutral-300 hover:text-white transition-colors relative shadow-sm"
+              className="h-9 w-9 bg-[#0A0A0A] hover:bg-[#141414] border border-[#222222] hover:border-[#FFD000]/60 rounded-lg flex items-center justify-center text-neutral-300 hover:text-white transition-colors relative shadow-sm cursor-pointer"
               title={t.notifications}
             >
               <Bell className="w-4 h-4 text-neutral-300" />

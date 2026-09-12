@@ -66,7 +66,7 @@ export const SaleFormModal: React.FC = () => {
           id: orderToEdit.customer?.id || 'cust-1',
           name: customerName,
           email: customerEmail,
-          avatar: orderToEdit.customer?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+          avatar: orderToEdit.customer?.avatar || undefined,
         },
       });
     } else {
@@ -79,7 +79,7 @@ export const SaleFormModal: React.FC = () => {
           id: `cust-${Date.now()}`,
           name: customerName,
           email: customerEmail,
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+          avatar: undefined,
         },
         items: [
           {

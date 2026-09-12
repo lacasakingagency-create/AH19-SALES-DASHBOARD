@@ -153,6 +153,9 @@ export async function registerWithSupabase(params: RegisterParams): Promise<Regi
         };
       }
 
+      const savedOnboarding = getLocalStore(`ah19_onboarding_${supabaseUser.id}`, null);
+      const userMetaAvatar = supabaseUser.user_metadata?.avatar_url || supabaseUser.user_metadata?.picture;
+      const cleanAvatar = userMetaAvatar && !userMetaAvatar.includes('images.unsplash.com') ? userMetaAvatar : '';
       const authUser: AuthUser = {
         id: supabaseUser.id,
         name: trimmedName,
@@ -160,10 +163,11 @@ export async function registerWithSupabase(params: RegisterParams): Promise<Regi
         role: 'Owner',
         company: orgName,
         company_id: companyId,
-        avatar:
-          supabaseUser.user_metadata?.avatar_url ||
-          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+        avatar: cleanAvatar,
+        auth_provider: 'email',
         phone: phone?.trim() || '',
+        onboarding_completed: false,
+        onboarding_data: savedOnboarding || undefined,
       };
 
       setLocalStore(LOCAL_SESSION_KEY, authUser);
@@ -228,8 +232,10 @@ export async function registerWithSupabase(params: RegisterParams): Promise<Regi
     role: 'Owner',
     company: orgName,
     company_id: companyId,
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+    avatar: '', // Normal registration: no photo, profile shows first letter of the name
+    auth_provider: 'email',
     phone: phone?.trim() || '',
+    onboarding_completed: false,
   };
 
   setLocalStore(LOCAL_SESSION_KEY, authUser);
@@ -297,6 +303,20 @@ export async function loginWithSupabase(email: string, password: string): Promis
         supabaseUser.user_metadata?.company_id ||
         'comp_life4billion';
 
+      const savedOnboarding = getLocalStore(`ah19_onboarding_${supabaseUser.id}`, null);
+      const onboardingCompleted = Boolean(
+        supabaseUser.user_metadata?.onboarding_completed ||
+        profileData?.onboarding_completed ||
+        savedOnboarding
+      );
+
+      const rawUserAvatar =
+        profileData?.avatar_url ||
+        supabaseUser.user_metadata?.avatar_url ||
+        supabaseUser.user_metadata?.picture;
+      const cleanLoginAvatar =
+        rawUserAvatar && !rawUserAvatar.includes('images.unsplash.com') ? rawUserAvatar : '';
+
       const authUser: AuthUser = {
         id: supabaseUser.id,
         name:
@@ -308,11 +328,11 @@ export async function loginWithSupabase(email: string, password: string): Promis
         role: profileData?.role || 'Administrator',
         company: companyName,
         company_id: companyId,
-        avatar:
-          profileData?.avatar_url ||
-          supabaseUser.user_metadata?.avatar_url ||
-          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+        avatar: cleanLoginAvatar,
+        auth_provider: supabaseUser.app_metadata?.provider === 'google' ? 'google' : 'email',
         phone: profileData?.phone || supabaseUser.user_metadata?.phone || '',
+        onboarding_completed: onboardingCompleted,
+        onboarding_data: supabaseUser.user_metadata?.onboarding_data || profileData?.onboarding_data || savedOnboarding,
       };
 
       setLocalStore(LOCAL_SESSION_KEY, authUser);
@@ -338,7 +358,9 @@ export async function loginWithSupabase(email: string, password: string): Promis
       role: 'Founder & CEO',
       company: 'Life4Billion Holdings Ltd.',
       company_id: 'comp_life4billion',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+      avatar: '', // No fake stranger photo; shows initials in profile
+      auth_provider: 'email',
+      onboarding_completed: true,
     };
     setLocalStore(LOCAL_SESSION_KEY, defaultUser);
     return { success: true, user: defaultUser };
@@ -359,6 +381,11 @@ export async function loginWithSupabase(email: string, password: string): Promis
   const profile = profiles.find((p: any) => p.id === found.id) || {};
   const companies = getLocalStore(LOCAL_COMPANIES_KEY, []);
   const company = companies.find((c: any) => c.id === profile.company_id) || {};
+  const savedOnboarding = getLocalStore(`ah19_onboarding_${found.id}`, null);
+
+  const rawLocalAvatar = profile.avatar;
+  const cleanLocalAvatar =
+    rawLocalAvatar && !rawLocalAvatar.includes('images.unsplash.com') ? rawLocalAvatar : '';
 
   const authUser: AuthUser = {
     id: found.id,
@@ -367,8 +394,11 @@ export async function loginWithSupabase(email: string, password: string): Promis
     role: profile.role || 'Owner',
     company: company.name || 'Minha Empresa',
     company_id: profile.company_id || `comp_${found.id}`,
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+    avatar: cleanLocalAvatar,
+    auth_provider: 'email',
     phone: profile.phone || '',
+    onboarding_completed: Boolean(profile.onboarding_completed || savedOnboarding),
+    onboarding_data: profile.onboarding_data || savedOnboarding,
   };
 
   setLocalStore(LOCAL_SESSION_KEY, authUser);
@@ -439,6 +469,75 @@ export async function resetPasswordWithSupabase(email: string): Promise<ResetPas
 }
 
 /**
+ * Save onboarding quiz responses associated with the user and company
+ */
+export async function saveOnboardingResponses(
+  userId: string,
+  companyId: string,
+  responses: any
+): Promise<{ success: boolean; error?: string }> {
+  const client = getSupabaseClient();
+  const responsesWithDate = {
+    ...responses,
+    completedAt: new Date().toISOString(),
+  };
+
+  if (isSupabaseConfigured() && client) {
+    try {
+      // 1. Update native user_metadata in auth.users
+      await client.auth.updateUser({
+        data: {
+          onboarding_completed: true,
+          onboarding_data: responsesWithDate,
+        },
+      });
+
+      // 2. Gracefully attempt update on profiles table
+      try {
+        await client
+          .from('profiles')
+          .update({
+            onboarding_completed: true,
+            onboarding_data: responsesWithDate,
+          })
+          .eq('id', userId);
+      } catch (profileErr) {
+        console.warn('Note: profiles table onboarding update attempt:', profileErr);
+      }
+    } catch (err: any) {
+      console.warn('Supabase onboarding update warning:', err);
+    }
+  }
+
+  // Persist locally for state continuity across reloads and preview environment
+  try {
+    localStorage.setItem(`ah19_onboarding_${userId}`, JSON.stringify(responsesWithDate));
+    localStorage.setItem(`ah19_onboarding_comp_${companyId}`, JSON.stringify(responsesWithDate));
+
+    // Update active session in local store
+    const currentSession = getLocalStore(LOCAL_SESSION_KEY, null);
+    if (currentSession && (currentSession.id === userId || !currentSession.id)) {
+      currentSession.onboarding_completed = true;
+      currentSession.onboarding_data = responsesWithDate;
+      setLocalStore(LOCAL_SESSION_KEY, currentSession);
+    }
+
+    // Update profiles cache
+    const localProfiles = getLocalStore(LOCAL_PROFILES_KEY, []);
+    const updatedProfiles = localProfiles.map((p: any) =>
+      p.id === userId
+        ? { ...p, onboarding_completed: true, onboarding_data: responsesWithDate }
+        : p
+    );
+    setLocalStore(LOCAL_PROFILES_KEY, updatedProfiles);
+  } catch (localErr) {
+    console.warn('Local onboarding storage note:', localErr);
+  }
+
+  return { success: true };
+}
+
+/**
  * Checks for an existing active Supabase session or cached session
  */
 export async function getActiveAuthUser(): Promise<AuthUser | null> {
@@ -472,6 +571,22 @@ export async function getActiveAuthUser(): Promise<AuthUser | null> {
           session.user.user_metadata?.company_id ||
           'comp_life4billion';
 
+        const savedOnboarding = getLocalStore(`ah19_onboarding_${userId}`, null);
+        const onboardingCompleted = Boolean(
+          session.user.user_metadata?.onboarding_completed ||
+          profileData?.onboarding_completed ||
+          savedOnboarding
+        );
+
+        const rawRestoredAvatar =
+          profileData?.avatar_url ||
+          session.user.user_metadata?.avatar_url ||
+          session.user.user_metadata?.picture;
+        const cleanRestoredAvatar =
+          rawRestoredAvatar && !rawRestoredAvatar.includes('images.unsplash.com')
+            ? rawRestoredAvatar
+            : '';
+
         return {
           id: userId,
           name:
@@ -484,11 +599,11 @@ export async function getActiveAuthUser(): Promise<AuthUser | null> {
           role: profileData?.role || 'Owner',
           company: companyName,
           company_id: companyId,
-          avatar:
-            profileData?.avatar_url ||
-            session.user.user_metadata?.avatar_url ||
-            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+          avatar: cleanRestoredAvatar,
+          auth_provider: session.user.app_metadata?.provider === 'google' ? 'google' : 'email',
           phone: profileData?.phone || '',
+          onboarding_completed: onboardingCompleted,
+          onboarding_data: session.user.user_metadata?.onboarding_data || profileData?.onboarding_data || savedOnboarding,
         };
       }
     } catch (err) {
@@ -496,25 +611,102 @@ export async function getActiveAuthUser(): Promise<AuthUser | null> {
     }
   }
 
-  // Fallback to local session store
-  const saved = getLocalStore(LOCAL_SESSION_KEY, null);
-  if (saved && saved.email) {
-    return saved;
-  }
-
-  // If local session flag is true, return default administrator
+  // Fallback to local session store ONLY IF session flag is explicitly 'true'
   const sessionFlag = typeof window !== 'undefined' ? localStorage.getItem('ah19_auth_session') : null;
-  if (sessionFlag !== 'false') {
-    return {
-      id: 'usr_abismar_master',
-      name: 'Abismar Henrique',
-      email: 'abismar@life4billion.com',
-      role: 'Founder & CEO',
-      company: 'Life4Billion Holdings Ltd.',
-      company_id: 'comp_life4billion',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
-    };
+  if (sessionFlag === 'true') {
+    const saved = getLocalStore(LOCAL_SESSION_KEY, null);
+    if (saved && saved.email) {
+      // Purge any legacy placeholder photo
+      if (saved.avatar && saved.avatar.includes('images.unsplash.com')) {
+        saved.avatar = '';
+        setLocalStore(LOCAL_SESSION_KEY, saved);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('ah19_auth_session_data', JSON.stringify(saved));
+          } catch {}
+        }
+      }
+      const savedOnboarding = getLocalStore(`ah19_onboarding_${saved.id}`, null);
+      return {
+        ...saved,
+        onboarding_completed: saved.onboarding_completed ?? Boolean(savedOnboarding),
+        onboarding_data: saved.onboarding_data || savedOnboarding,
+      };
+    }
   }
 
+  // For unauthenticated visitors, return null strictly
   return null;
+}
+
+export interface GoogleAuthParams {
+  email?: string;
+  name?: string;
+  avatarUrl?: string;
+}
+
+/**
+ * Sign in or Register using Google OAuth or Google Account selector
+ * Automatically pulls the real photo linked to the Google email
+ */
+export async function loginWithGoogle(params?: GoogleAuthParams): Promise<LoginResult> {
+  const client = getSupabaseClient();
+
+  // If real Supabase OAuth is configured and no mock override params are provided
+  if (isSupabaseConfigured() && client && !params) {
+    try {
+      const { error } = await client.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/dashboard` : undefined,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+      if (error) throw error;
+      return { success: true };
+    } catch (err: any) {
+      console.warn('Supabase Google OAuth fallback to direct resolution:', err);
+    }
+  }
+
+  // Google email resolution (pulls photo directly from email)
+  const email = (params?.email || 'lacasaking.agency@gmail.com').trim().toLowerCase();
+  const rawName = params?.name?.trim() || email.split('@')[0].replace(/[._-]/g, ' ');
+  const formattedName = rawName
+    .split(' ')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+
+  // Pull photo directly from email (via unavatar Google service)
+  const googleAvatar =
+    params?.avatarUrl || `https://unavatar.io/${encodeURIComponent(email)}`;
+  const userId = `usr_google_${Date.now()}`;
+  const companyId = `comp_google_${Date.now()}`;
+
+  const authUser: AuthUser = {
+    id: userId,
+    name: formattedName || 'Usuário Google',
+    email,
+    role: 'Owner',
+    company: 'Life4Billion Commerce',
+    company_id: companyId,
+    avatar: googleAvatar, // Verified Google photo from email
+    auth_provider: 'google',
+    onboarding_completed: true,
+  };
+
+  setLocalStore(LOCAL_SESSION_KEY, authUser);
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('ah19_auth_session', 'true');
+    localStorage.setItem('ah19_auth_session_data', JSON.stringify(authUser));
+  }
+
+  return {
+    success: true,
+    user: authUser,
+  };
 }

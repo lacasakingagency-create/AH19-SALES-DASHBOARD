@@ -13,8 +13,11 @@ import {
   Edit2,
   Trash2,
   Layers,
+  Filter,
 } from 'lucide-react';
-import { OrderItem } from '../types';
+import { OrderItem, CustomerJourneyStage } from '../types';
+import { CustomerJourneyFunnel } from '../components/CustomerJourneyFunnel';
+import { getFirstLetter } from '../utils/avatarUtils';
 
 export const SalesPage: React.FC = () => {
   const {
@@ -31,8 +34,10 @@ export const SalesPage: React.FC = () => {
     triggerDeleteConfirm,
     deleteOrder,
     t,
+    language,
   } = useApp();
 
+  const isPt = language === 'pt';
   const subTab = activeSubTab || 'overview';
 
   // Orders table state & filters
@@ -93,6 +98,186 @@ export const SalesPage: React.FC = () => {
   const refundRate =
     orders.length > 0 ? ((refunds.length / orders.length) * 100).toFixed(1) : '1.4';
 
+  // Customer Journey Funnel Stages for Sales View
+  const salesFunnelStages: CustomerJourneyStage[] = useMemo(() => {
+    const baseVisitors = Math.max(48920, orders.length * 35);
+    const viewsCount = Math.round(baseVisitors * 0.578);
+    const cartCount = Math.round(baseVisitors * 0.158);
+    const checkoutsCount = Math.max(orders.length, Math.round(baseVisitors * 0.086));
+    const purchasesCount = paidOrdersCount > 0 ? paidOrdersCount : Math.max(1428, orders.length);
+    const retentionCount = Math.round(purchasesCount * 0.181);
+    const revenue = totalSalesRevenue > 0 ? totalSalesRevenue : 189420;
+    const aov = salesAov > 0 ? salesAov : 132.6;
+
+    const calcPct = (num: number, den: number, decimals = 1) => {
+      if (den <= 0) return 0;
+      return Number(((num / den) * 100).toFixed(decimals));
+    };
+
+    return [
+      {
+        id: 'visitors',
+        stepNumber: 1,
+        label: isPt ? 'Visitantes da Loja & Tráfego' : 'Store Visitors & Discovery',
+        sublabel: isPt
+          ? 'Sessões originadas por anúncios Meta/Google, busca orgânica e influenciadores'
+          : 'Sessions driven by Meta/Google paid ads, organic search, and brand affiliates',
+        count: baseVisitors,
+        formattedCount: baseVisitors.toLocaleString(),
+        percentageOfTop: 100,
+        conversionFromPrev: 100,
+        dropOffRate: 0,
+        dropOffCount: 0,
+        mobileRate: 73,
+        desktopRate: 27,
+        topDropoffReason: isPt
+          ? 'Taxa de rejeição (bounce rate) inicial em tráfego de redes sociais mobile'
+          : 'Initial bounce rate on cold social traffic and ad creative clicks',
+        insight: isPt
+          ? '73% do tráfego é mobile. Landing pages com tempo de carregamento <1.2s convertem 2.4x mais.'
+          : '73% mobile traffic share. Landing pages loading under 1.2s convert 2.4x higher.',
+        actionableRecommendation: isPt
+          ? 'Reduza o payload de imagens pesadas na Hero Section e ative cache de borda via CDN.'
+          : 'Optimize hero section image payloads and activate Cloudflare edge caching.',
+        iconName: 'users',
+      },
+      {
+        id: 'views',
+        stepNumber: 2,
+        label: isPt ? 'Visualização de Produtos' : 'Product Page Views',
+        sublabel: isPt
+          ? 'Usuários que navegaram nas páginas de produto, seletores de cor e especificações'
+          : 'Users browsing product detail pages, color options, and sensor specifications',
+        count: viewsCount,
+        formattedCount: viewsCount.toLocaleString(),
+        percentageOfTop: calcPct(viewsCount, baseVisitors),
+        conversionFromPrev: calcPct(viewsCount, baseVisitors),
+        dropOffRate: Math.max(0, 100 - calcPct(viewsCount, baseVisitors)),
+        dropOffCount: Math.max(0, baseVisitors - viewsCount),
+        mobileRate: 71,
+        desktopRate: 29,
+        topDropoffReason: isPt
+          ? 'Dúvida na escolha do tamanho do anel inteligente e comparação com outros modelos'
+          : 'Sizing hesitation on smart ring circumference and technical comparison doubts',
+        insight: isPt
+          ? 'Usuários que alternam entre as opções Ouro e Preto têm 2.1x mais retenção na página.'
+          : 'Users toggling between Gold and Matte Black finishes exhibit 2.1x higher dwell time.',
+        actionableRecommendation: isPt
+          ? 'Promova o Kit Medidor Grátis com envio prévio e adicione vídeo tutorial de 15 segundos.'
+          : 'Promote Free Sizing Kit sent prior to delivery and add a 15s sizing guide video.',
+        iconName: 'eye',
+      },
+      {
+        id: 'cart',
+        stepNumber: 3,
+        label: isPt ? 'Adição ao Carrinho' : 'Add to Cart',
+        sublabel: isPt
+          ? 'Itens colocados na sacola de compras com intenção de compra ativa'
+          : 'Items placed in shopping bag reflecting active buying intent',
+        count: cartCount,
+        formattedCount: cartCount.toLocaleString(),
+        percentageOfTop: calcPct(cartCount, baseVisitors),
+        conversionFromPrev: calcPct(cartCount, viewsCount),
+        dropOffRate: Math.max(0, 100 - calcPct(cartCount, viewsCount)),
+        dropOffCount: Math.max(0, viewsCount - cartCount),
+        revenue: Math.round(cartCount * aov * 0.8),
+        avgOrderValue: aov,
+        mobileRate: 68,
+        desktopRate: 32,
+        topDropoffReason: isPt
+          ? 'Abandono de carrinho para comparar com concorrentes ou busca por cupons promocionais'
+          : 'Cart abandonment for competitor comparison or hunting for promo coupons',
+        insight: isPt
+          ? 'Carrinhos com 2+ itens representam 34% do volume total com ticket médio 1.6x superior.'
+          : 'Multi-item carts account for 34% of volume with 1.6x higher average order value.',
+        actionableRecommendation: isPt
+          ? 'Ative gaveta de saída (exit intent) com oferta de frete expresso gratuito imediato.'
+          : 'Trigger exit-intent drawer offering free priority courier shipping.',
+        iconName: 'shopping-cart',
+      },
+      {
+        id: 'checkout',
+        stepNumber: 4,
+        label: isPt ? 'Checkouts Iniciados' : 'Initiated Checkouts',
+        sublabel: isPt
+          ? 'Preenchimento de dados de contato, endereço e cálculo de frete'
+          : 'Customer contact details, shipping address, and carrier selection',
+        count: checkoutsCount,
+        formattedCount: checkoutsCount.toLocaleString(),
+        percentageOfTop: calcPct(checkoutsCount, baseVisitors),
+        conversionFromPrev: calcPct(checkoutsCount, cartCount),
+        dropOffRate: Math.max(0, 100 - calcPct(checkoutsCount, cartCount)),
+        dropOffCount: Math.max(0, cartCount - checkoutsCount),
+        mobileRate: 64,
+        desktopRate: 36,
+        topDropoffReason: isPt
+          ? 'Custo inesperado de frete internacional ou tempo de entrega superior a 5 dias úteis'
+          : 'Unexpected shipping freight fee or delivery estimate exceeding 5 business days',
+        insight: isPt
+          ? '68% dos clientes preenchem o e-mail mas não avançam para o pagamento com cartão.'
+          : '68% of shoppers input email address but abandon before filling card details.',
+        actionableRecommendation: isPt
+          ? 'Integre Stripe Link, Apple Pay e Google Pay para checkout rápido em 1 toque sem digitação.'
+          : 'Integrate Stripe Link, Apple Pay, and Google Pay for friction-free 1-tap checkout.',
+        iconName: 'credit-card',
+      },
+      {
+        id: 'purchase',
+        stepNumber: 5,
+        label: isPt ? 'Vendas Concluídas' : 'Completed Purchases',
+        sublabel: isPt
+          ? 'Transações aprovadas, liquidadas e sincronizadas no ERP/Stripe'
+          : 'Transactions approved, settled, and synced to ERP/Stripe database',
+        count: purchasesCount,
+        formattedCount: purchasesCount.toLocaleString(),
+        percentageOfTop: calcPct(purchasesCount, baseVisitors, 2),
+        conversionFromPrev: calcPct(purchasesCount, checkoutsCount),
+        dropOffRate: Math.max(0, 100 - calcPct(purchasesCount, checkoutsCount)),
+        dropOffCount: Math.max(0, checkoutsCount - purchasesCount),
+        revenue: revenue,
+        avgOrderValue: aov,
+        mobileRate: 61,
+        desktopRate: 39,
+        topDropoffReason: isPt
+          ? 'Bloqueio preventivo do banco emissor por suspeita de fraude ou desistência 3D-Secure'
+          : 'Issuing bank fraud defense decline or 3D-Secure mobile verification drop',
+        insight: isPt
+          ? 'Aprovações via carteira digital ou PIX atingem 98.4% sem falhas de adquirente.'
+          : 'Transactions via digital wallets or PIX achieve 98.4% success without acquirer errors.',
+        actionableRecommendation: isPt
+          ? 'Habilite múltiplos gateways adquirentes com fallback automático em caso de recusa.'
+          : 'Enable multi-acquirer fallback routing to recover declined credit card transactions.',
+        iconName: 'check-circle',
+      },
+      {
+        id: 'retention',
+        stepNumber: 6,
+        label: isPt ? 'Recompra & Retenção (LTV)' : 'Repeat Purchases & Retention',
+        sublabel: isPt
+          ? 'Clientes recorrentes que adquiriram novos acessórios ou assinatura da plataforma de IA'
+          : 'Returning customers purchasing accessories or subscribing to AH19 AI Health Platform',
+        count: retentionCount,
+        formattedCount: retentionCount.toLocaleString(),
+        percentageOfTop: calcPct(retentionCount, baseVisitors, 2),
+        conversionFromPrev: calcPct(retentionCount, purchasesCount),
+        dropOffRate: Math.max(0, 100 - calcPct(retentionCount, purchasesCount)),
+        dropOffCount: Math.max(0, purchasesCount - retentionCount),
+        mobileRate: 67,
+        desktopRate: 33,
+        topDropoffReason: isPt
+          ? 'Ausência de régua de comunicação pós-venda personalizada nos primeiros 14 dias'
+          : 'Lack of personalized post-purchase nurture flow during the first 14 days after delivery',
+        insight: isPt
+          ? 'Clientes com 2+ compras possuem LTV médio de $342 e taxa de cancelamento de apenas 0.4%.'
+          : 'Repeat buyers yield an average LTV of $342 and an ultra-low refund rate of 0.4%.',
+        actionableRecommendation: isPt
+          ? 'Dispare automação no Klaviyo oferecendo cupom exclusivo de 15% para familiares e pulseiras.'
+          : 'Automate Klaviyo post-delivery flow offering exclusive 15% VIP code for family and accessories.',
+        iconName: 'repeat',
+      },
+    ];
+  }, [orders, paidOrdersCount, totalSalesRevenue, salesAov, isPt]);
+
   const handleCreateSale = () => {
     setSaleToEdit(null);
     setSaleModalOpen(true);
@@ -120,6 +305,7 @@ export const SalesPage: React.FC = () => {
         <div className="flex items-center gap-1.5 bg-[#0A0A0A] p-1 rounded-xl border border-[#1E1E1E]">
           {[
             { id: 'overview', label: t.sales_overview, icon: TrendingUp },
+            { id: 'funnel', label: isPt ? 'Funil de Vendas' : 'Sales Funnel', icon: Filter },
             { id: 'orders', label: t.nav_sales, icon: ShoppingBag, count: orders.length },
             { id: 'products', label: t.nav_products, icon: Package, count: products.length },
             { id: 'refunds', label: t.sales_refunds, icon: RotateCcw, count: refunds.length },
@@ -209,6 +395,38 @@ export const SalesPage: React.FC = () => {
         </div>
       </div>
 
+      {/* VIEW: DEDICATED SALES FUNNEL SUBTAB */}
+      {subTab === 'funnel' && (
+        <CustomerJourneyFunnel
+          stages={salesFunnelStages}
+          mode="sales"
+          title={isPt ? 'Funil de Vendas & Jornada Completa do Cliente' : 'Sales Funnel & Complete Customer Journey'}
+          subtitle={
+            isPt
+              ? 'Diagnóstico aprofundado das 6 etapas da jornada: Tráfego e Descoberta, Visualização de Produto, Adição ao Carrinho, Checkout Iniciado, Compras Aprovadas e Recompra/LTV.'
+              : 'In-depth diagnostic telemetry across all 6 stages: Discovery Traffic, Product Page Views, Add to Cart, Initiated Checkout, Completed Purchases, and Retention/LTV.'
+          }
+          formatCurrency={formatCurrency}
+          isPt={isPt}
+        />
+      )}
+
+      {/* VIEW: OVERVIEW SUBTAB EMBEDDED FUNNEL */}
+      {subTab === 'overview' && (
+        <CustomerJourneyFunnel
+          stages={salesFunnelStages}
+          mode="sales"
+          title={isPt ? 'Funil da Jornada do Cliente' : 'Customer Journey Funnel'}
+          subtitle={
+            isPt
+              ? 'Visão ponta a ponta sobre a taxa de passagem e atritos entre cada etapa do processo de compra'
+              : 'End-to-end view of pass-through rates and friction points across the customer buying journey'
+          }
+          formatCurrency={formatCurrency}
+          isPt={isPt}
+        />
+      )}
+
       {/* VIEW 1: ORDERS TABLE */}
       {(subTab === 'orders' || subTab === 'overview') && (
         <div className="bg-[#0A0A0A] rounded-xl border border-[#1C1C1C] overflow-hidden shadow-lg">
@@ -295,10 +513,8 @@ export const SalesPage: React.FC = () => {
                       typeof order.customer === 'object' ? order.customer?.name : String(order.customer);
                     const custEmail =
                       typeof order.customer === 'object' ? order.customer?.email : '';
-                    const custAvatar =
-                      typeof order.customer === 'object'
-                        ? order.customer?.avatar
-                        : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80';
+                    const rawCustAvatar = typeof order.customer === 'object' ? order.customer?.avatar : '';
+                    const custAvatar = rawCustAvatar && !rawCustAvatar.includes('images.unsplash.com') ? rawCustAvatar : '';
 
                     return (
                       <tr
@@ -312,11 +528,20 @@ export const SalesPage: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 text-neutral-300">
                           <div className="flex items-center gap-2.5">
-                            <img
-                              src={custAvatar}
-                              alt={custName}
-                              className="w-6 h-6 rounded-full object-cover border border-[#2A2A2A]"
-                            />
+                            {custAvatar ? (
+                              <img
+                                src={custAvatar}
+                                alt={custName}
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                                className="w-6 h-6 rounded-full object-cover border border-[#2A2A2A]"
+                              />
+                            ) : (
+                              <div className="w-6 h-6 rounded-full bg-[#161616] border border-[#2A2A2A] flex items-center justify-center font-mono font-bold text-[10px] text-[#FFD000] shrink-0">
+                                {getFirstLetter(custName || 'U')}
+                              </div>
+                            )}
                             <div>
                               <p className="font-semibold text-white truncate max-w-[130px]">{custName}</p>
                               <p className="text-[10px] text-neutral-400 font-mono">{custEmail}</p>

@@ -16,7 +16,9 @@ import {
   KeyRound,
 } from 'lucide-react';
 import { GoldCrownIcon } from '../components/BrandIcons';
+import { AH19Logo } from '../components/brand/AH19Logo';
 import { useApp } from '../context/AppContext';
+import { GoogleAuthModal } from '../components/auth/GoogleAuthModal';
 
 export const AuthPage: React.FC = () => {
   const {
@@ -33,8 +35,8 @@ export const AuthPage: React.FC = () => {
 
   // Controlled form fields
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('abismar@life4billion.com');
-  const [password, setPassword] = useState('ah19master');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [phone, setPhone] = useState('');
@@ -42,6 +44,7 @@ export const AuthPage: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(true);
   const [rememberMe, setRememberMe] = useState(true);
+  const [googleModalOpen, setGoogleModalOpen] = useState(false);
 
   // Status & Feedback states
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -155,12 +158,6 @@ export const AuthPage: React.FC = () => {
     }
   };
 
-  const handleDemoAccess = async () => {
-    setEmail('abismar@life4billion.com');
-    setPassword('ah19master');
-    await login('abismar@life4billion.com', 'ah19master');
-  };
-
   const switchMode = (newMode: 'login' | 'register' | 'forgot') => {
     setErrors({});
     setFormGeneralError(null);
@@ -177,22 +174,7 @@ export const AuthPage: React.FC = () => {
     >
       {/* Top Header Navigation */}
       <header className="w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-        <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-[#0A0A0A] border border-[#222222] flex items-center justify-center shadow-lg">
-            <GoldCrownIcon className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-xl tracking-tight text-white">AH19</span>
-              <span className="text-[10px] font-mono tracking-widest uppercase px-1.5 py-0.5 rounded bg-[#FFD000]/10 border border-[#FFD000]/30 text-[#FFD000] font-bold">
-                SaaS
-              </span>
-            </div>
-            <span className="text-[11px] text-neutral-400 font-mono tracking-wider uppercase block">
-              Financial Intelligence & Commerce
-            </span>
-          </div>
-        </div>
+        <AH19Logo size="md" showSlogan={true} sloganLanguage={language as 'pt' | 'en'} />
 
         {/* Right Header: Language Switcher */}
         <div className="flex items-center gap-3">
@@ -227,6 +209,11 @@ export const AuthPage: React.FC = () => {
         <div className="w-full max-w-lg bg-[#0A0A0A] border border-[#222222] rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6 relative overflow-hidden">
           {/* Subtle gold top line accent */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#FFD000] via-[#FFE76A] to-[#FFD000]" />
+
+          {/* Centered Brand Logo */}
+          <div className="flex flex-col items-center justify-center pt-2 pb-1">
+            <AH19Logo size="lg" showSlogan={false} />
+          </div>
 
           {/* Heading */}
           <div className="text-center space-y-2">
@@ -318,6 +305,51 @@ export const AuthPage: React.FC = () => {
           {/* Form */}
           {!emailConfirmationRequired && !forgotSuccessMessage && (
             <form onSubmit={handleFormSubmit} className="space-y-4">
+              {/* Google OAuth Option (Available on Register & Login) */}
+              {(authMode === 'register' || authMode === 'login') && (
+                <div>
+                  <button
+                    type="button"
+                    id="google-auth-trigger-btn"
+                    onClick={() => setGoogleModalOpen(true)}
+                    disabled={authLoading}
+                    className="w-full py-3 px-4 rounded-xl bg-[#141414] hover:bg-[#1A1A1A] border border-[#2A2A2A] hover:border-[#FFD000]/60 text-white text-xs font-bold transition-all flex items-center justify-center gap-3 cursor-pointer shadow-sm group disabled:opacity-50"
+                  >
+                    <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center shrink-0 shadow-sm">
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.16 0 9.99 0 12s.45 3.84 1.25 5.42l4.03-3.15z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                        />
+                      </svg>
+                    </div>
+                    <span>
+                      {authMode === 'register' ? t.auth_signup_google : t.auth_continue_google}
+                    </span>
+                  </button>
+
+                  <div className="relative flex items-center justify-center my-3.5">
+                    <div className="border-t border-[#1F1F1F] w-full" />
+                    <span className="bg-[#0A0A0A] px-3 text-[10px] uppercase tracking-wider text-neutral-500 font-mono shrink-0">
+                      {t.auth_or_divider}
+                    </span>
+                    <div className="border-t border-[#1F1F1F] w-full" />
+                  </div>
+                </div>
+              )}
+
               {/* Register Mode Extra Fields */}
               {authMode === 'register' && (
                 <>
@@ -589,20 +621,6 @@ export const AuthPage: React.FC = () => {
                 )}
               </button>
 
-              {/* One-click Demo Access Button (in Login mode) */}
-              {authMode === 'login' && (
-                <button
-                  type="button"
-                  id="auth-demo-access-btn"
-                  onClick={handleDemoAccess}
-                  disabled={authLoading}
-                  className="w-full py-2.5 rounded-xl bg-[#141414] hover:bg-[#1C1C1C] border border-[#2A2A2A] text-neutral-300 hover:text-white text-xs font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <ShieldCheck className="w-4 h-4 text-[#FFD000]" />
-                  <span>{t.auth_demo_access}</span>
-                </button>
-              )}
-
               {/* Mode Switchers */}
               <div className="text-center pt-3 text-xs text-neutral-400 space-y-1 border-t border-[#1C1C1C]">
                 {authMode === 'login' && (
@@ -649,6 +667,13 @@ export const AuthPage: React.FC = () => {
             </form>
           )}
         </div>
+
+        {/* Google Authentication Dialog */}
+        <GoogleAuthModal
+          isOpen={googleModalOpen}
+          onClose={() => setGoogleModalOpen(false)}
+          mode={authMode === 'register' ? 'register' : 'login'}
+        />
       </main>
 
       {/* Footer */}

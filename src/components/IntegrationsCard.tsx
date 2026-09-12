@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers, Plus, Check } from 'lucide-react';
+import { Layers, Plus, Check, X, CreditCard } from 'lucide-react';
 import {
   ShopifyIcon,
   MetaIcon,
@@ -20,22 +20,18 @@ export const IntegrationsCard: React.FC<IntegrationsCardProps> = ({
   onConnectNew,
   onSelectIntegration,
 }) => {
-  const getIcon = (key: string) => {
-    switch (key) {
-      case 'shopify':
-        return <ShopifyIcon className="w-5 h-5" />;
-      case 'meta':
-        return <MetaIcon className="w-5 h-5" />;
-      case 'google':
-        return <GoogleAdsIcon className="w-5 h-5" />;
-      case 'ga4':
-        return <GA4Icon className="w-5 h-5" />;
-      case 'tiktok':
-        return <TikTokIcon className="w-5 h-5" />;
-      default:
-        return <Layers className="w-5 h-5 text-neutral-400" />;
-    }
+  const getIcon = (key?: string) => {
+    const k = (key || '').toLowerCase();
+    if (k.includes('shopify')) return <ShopifyIcon className="w-5 h-5" />;
+    if (k.includes('meta') || k.includes('facebook')) return <MetaIcon className="w-5 h-5" />;
+    if (k.includes('google') || k.includes('gads')) return <GoogleAdsIcon className="w-5 h-5" />;
+    if (k.includes('ga4') || k.includes('analytics')) return <GA4Icon className="w-5 h-5" />;
+    if (k.includes('tiktok')) return <TikTokIcon className="w-5 h-5" />;
+    if (k.includes('stripe')) return <CreditCard className="w-5 h-5 text-indigo-400" />;
+    return <Layers className="w-5 h-5 text-neutral-400" />;
   };
+
+  const connectedCount = integrations.filter((i) => i.status === 'connected').length;
 
   return (
     <div
@@ -52,37 +48,53 @@ export const IntegrationsCard: React.FC<IntegrationsCardProps> = ({
             <h2 id="integrations-title" className="text-base font-bold text-white tracking-tight">
               Fontes de Dados & Integrações
             </h2>
-            <p className="text-xs text-neutral-400">5 canais conectados e sincronizando em tempo real</p>
+            <p className="text-xs text-neutral-400">
+              {connectedCount} de {integrations.length} canais ativos e conectados
+            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 text-xs font-extrabold badge-gold-blend px-3 py-1 rounded-md shadow-md">
-          <span className="w-2 h-2 rounded-full bg-black animate-pulse" />
-          <span>Sincronizado</span>
+          <span className={`w-2 h-2 rounded-full ${connectedCount > 0 ? 'bg-black animate-pulse' : 'bg-red-500'}`} />
+          <span>{connectedCount > 0 ? 'Sincronizado' : 'Offline'}</span>
         </div>
       </div>
 
       {/* Integration Badges Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        {integrations.map((item) => (
-          <div
-            key={item.id}
-            id={`integration-badge-${item.id}`}
-            onClick={() => onSelectIntegration && onSelectIntegration(item)}
-            className="flex flex-col items-center justify-center p-3 rounded-lg border border-[#1E1E1E] bg-[#141414] hover:border-[#FFD000]/70 transition-all cursor-pointer group text-center shadow-sm"
-          >
-            <div className="w-9 h-9 rounded-lg icon-badge-blend flex items-center justify-center mb-2 shadow-sm">
-              {getIcon(item.id)}
+        {integrations.map((item) => {
+          const isConnected = item.status === 'connected';
+          return (
+            <div
+              key={item.id}
+              id={`integration-badge-${item.id}`}
+              onClick={() => onSelectIntegration && onSelectIntegration(item)}
+              className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all cursor-pointer group text-center shadow-sm ${
+                isConnected
+                  ? 'border-[#1E1E1E] bg-[#141414] hover:border-[#FFD000]/70'
+                  : 'border-red-950/40 bg-[#0E0B0B] hover:border-red-600/50'
+              }`}
+            >
+              <div className="w-9 h-9 rounded-lg icon-badge-blend flex items-center justify-center mb-2 shadow-sm">
+                {getIcon(item.iconKey || item.id)}
+              </div>
+              <span className="text-xs font-bold text-white group-hover:text-[#FFE76A] transition-colors truncate max-w-full px-1">
+                {item.name}
+              </span>
+              {isConnected ? (
+                <div className="flex items-center gap-1 mt-1 text-[10px] text-emerald-400 font-mono font-bold">
+                  <Check className="w-3 h-3 text-emerald-400 stroke-[2.5]" />
+                  <span>Conectado</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 mt-1 text-[10px] text-red-400 font-mono font-bold">
+                  <X className="w-3 h-3 text-red-400 stroke-[2.5]" />
+                  <span>Não conectado</span>
+                </div>
+              )}
             </div>
-            <span className="text-xs font-bold text-white group-hover:text-[#FFE76A] transition-colors">
-              {item.name}
-            </span>
-            <div className="flex items-center gap-1 mt-1 text-[10px] text-neutral-400 font-mono">
-              <Check className="w-3.5 h-3.5 text-[#FFE76A] stroke-[2.5]" />
-              <span>Conectado</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
 
         {/* Connect New Button */}
         <button

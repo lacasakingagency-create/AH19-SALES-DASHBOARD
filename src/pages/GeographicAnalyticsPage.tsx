@@ -22,7 +22,13 @@ import {
   X,
   ArrowUpRight,
   Filter,
+  Maximize2,
+  Minimize2,
+  Image as ImageIcon,
 } from 'lucide-react';
+import worldMapGeoImage from '../assets/images/world_map_geo_1789250387618.jpg';
+import { CustomerJourneyFunnel } from '../components/CustomerJourneyFunnel';
+import { CustomerJourneyStage } from '../types';
 import { useApp } from '../context/AppContext';
 import {
   detectVisitorLocation,
@@ -127,6 +133,7 @@ export const GeographicAnalyticsPage: React.FC = () => {
   const [simProduct, setSimProduct] = useState('Life4Billion Smart Health Ring Gen 4');
   const [simSource, setSimSource] = useState('Meta Ads');
   const [simSuccessToast, setSimSuccessToast] = useState<string | null>(null);
+  const [mapImageExpanded, setMapImageExpanded] = useState(false);
 
   // Fetch geographic summary from API
   const fetchAnalytics = async (showRefresh = false) => {
@@ -201,6 +208,242 @@ export const GeographicAnalyticsPage: React.FC = () => {
       cvr: kpis.conversionRate,
     };
   }, [kpis, multiplier]);
+
+  // Customer Journey Funnel Stages for Geographic View
+  const geoFunnelStages: CustomerJourneyStage[] = useMemo(() => {
+    const isFiltered = Boolean(selectedCountry);
+    const targetVisitors = isFiltered
+      ? Math.max(10, Math.round(selectedCountry!.visitors * multiplier))
+      : displayKpis.visitors;
+    const targetCheckouts = isFiltered
+      ? Math.max(2, Math.round(selectedCountry!.checkouts * multiplier))
+      : displayKpis.checkouts;
+    const targetPurchases = isFiltered
+      ? Math.max(1, Math.round(selectedCountry!.purchases * multiplier))
+      : displayKpis.purchases;
+    const targetRevenue = isFiltered
+      ? Math.round(selectedCountry!.revenue * multiplier)
+      : displayKpis.revenue;
+
+    const viewsCount = Math.max(5, Math.round(targetVisitors * 0.582));
+    const cartCount = Math.max(3, Math.round(targetVisitors * 0.162));
+    const retentionCount = Math.max(1, Math.round(targetPurchases * 0.185));
+
+    const countryCode = selectedCountry?.country_code || 'GLOBAL';
+
+    let checkoutFriction = isPt
+      ? 'Custos de frete internacional e cálculo de impostos de importação exibidos no checkout'
+      : 'International shipping freight costs and duty tax estimation calculated at checkout';
+    let paymentFriction = isPt
+      ? 'Recusa de cartão por emissor bancário internacional ou ausência de método de pagamento nativo'
+      : 'Card security decline on cross-border charge or absence of preferred local rails';
+
+    if (countryCode === 'BR') {
+      checkoutFriction = isPt
+        ? 'Tentativa de parcelamento em cartão nacional ou busca por chave PIX com desconto'
+        : 'Shoppers looking for interest-free installment options or instant PIX discount';
+      paymentFriction = isPt
+        ? 'Dificuldade com cartões sem habilitação internacional ativa (resolvido com PIX)'
+        : 'Non-international enabled credit cards declining on international gateways';
+    } else if (countryCode === 'US') {
+      checkoutFriction = isPt
+        ? 'Cálculo de imposto estadual (sales tax) de cada estado no passo final'
+        : 'State sales tax rate calculated at the final review step';
+      paymentFriction = isPt
+        ? 'Abandono por preferência por Apple Pay / Shop Pay em 1 clique'
+        : 'Abandonment due to friction when 1-click Apple Pay or Shop Pay is not selected';
+    } else if (countryCode === 'DE') {
+      checkoutFriction = isPt
+        ? 'Consumidores alemães exigem confirmação explícita de política de devolução sem custo'
+        : 'German consumers requiring explicit confirmation of free return policy';
+      paymentFriction = isPt
+        ? 'Preferência por pagamento faturado (Sofort / Klarna Rechnung) antes da cobrança no cartão'
+        : 'Strong preference for invoice payment (Klarna / Sofort) over upfront credit card';
+    } else if (countryCode === 'GB') {
+      checkoutFriction = isPt
+        ? 'Incerteza sobre prazos de entrega pós-Brexit e cálculo de VAT britânico'
+        : 'Post-Brexit cross-border customs paperwork concerns and UK VAT breakdown';
+    }
+
+    const calcPct = (num: number, den: number, decimals = 1) => {
+      if (den <= 0) return 0;
+      return Number(((num / den) * 100).toFixed(decimals));
+    };
+
+    return [
+      {
+        id: 'visitors',
+        stepNumber: 1,
+        label: isPt ? 'Visitantes & Descoberta' : 'Discovery & Visitors',
+        sublabel: isPt
+          ? `Sessões originadas por anúncios e buscas em ${selectedCountry?.country || 'todos os países'}`
+          : `Sessions driven by campaigns & organic traffic in ${selectedCountry?.country || 'all global markets'}`,
+        count: targetVisitors,
+        formattedCount: targetVisitors.toLocaleString(),
+        percentageOfTop: 100,
+        conversionFromPrev: 100,
+        dropOffRate: 0,
+        dropOffCount: 0,
+        mobileRate: countryCode === 'BR' ? 82 : 73,
+        desktopRate: countryCode === 'BR' ? 18 : 27,
+        topDropoffReason: isPt
+          ? 'Taxa de rejeição (bounce rate) inicial em tráfego de redes sociais'
+          : 'Initial bounce rate on cold social traffic and ad creative clicks',
+        insight: isPt
+          ? 'Tempo médio de carregamento: 1.1s. Usuários engajam 2.1x mais quando o preço é exibido na moeda local.'
+          : 'Average page load: 1.1s. 2.1x higher engagement when pricing is displayed in local currency.',
+        actionableRecommendation: isPt
+          ? 'Ative geolocalização IP para pré-selecionar a bandeira e moeda local na página inicial.'
+          : 'Enable IP geolocation to auto-select local currency and regional shipping banner.',
+        iconName: 'users',
+      },
+      {
+        id: 'views',
+        stepNumber: 2,
+        label: isPt ? 'Visualização de Produtos' : 'Product Page Views',
+        sublabel: isPt
+          ? 'Navegação nas especificações técnicas, tabela de medidas e sensores'
+          : 'Browsing technical specifications, sizing charts, and biometric sensors',
+        count: viewsCount,
+        formattedCount: viewsCount.toLocaleString(),
+        percentageOfTop: calcPct(viewsCount, targetVisitors),
+        conversionFromPrev: calcPct(viewsCount, targetVisitors),
+        dropOffRate: Math.max(0, 100 - calcPct(viewsCount, targetVisitors)),
+        dropOffCount: Math.max(0, targetVisitors - viewsCount),
+        mobileRate: countryCode === 'BR' ? 80 : 71,
+        desktopRate: countryCode === 'BR' ? 20 : 29,
+        topDropoffReason: isPt
+          ? 'Dúvida sobre a equivalência internacional de medidas do anel inteligente'
+          : 'Sizing hesitation regarding international ring dimension standards',
+        insight: isPt
+          ? 'Usuários que assistem à demonstração dos sensores têm 2.4x mais intenção de compra.'
+          : 'Users watching the biometric sensor demo video exhibit 2.4x higher intent.',
+        actionableRecommendation: isPt
+          ? 'Destaque o Kit Medidor Grátis enviado antes do anel definitivo com troca sem custos.'
+          : 'Highlight Free Sizing Kit shipped ahead of ring with zero-cost size exchange guarantee.',
+        iconName: 'eye',
+      },
+      {
+        id: 'cart',
+        stepNumber: 3,
+        label: isPt ? 'Adição ao Carrinho' : 'Add to Cart',
+        sublabel: isPt
+          ? 'Seleção de acabamento (Ouro vs Preto) e adição ativa à sacola'
+          : 'Finish selection (Gold vs Matte Black) and active item addition to cart',
+        count: cartCount,
+        formattedCount: cartCount.toLocaleString(),
+        percentageOfTop: calcPct(cartCount, targetVisitors),
+        conversionFromPrev: calcPct(cartCount, viewsCount),
+        dropOffRate: Math.max(0, 100 - calcPct(cartCount, viewsCount)),
+        dropOffCount: Math.max(0, viewsCount - cartCount),
+        mobileRate: 68,
+        desktopRate: 32,
+        topDropoffReason: isPt
+          ? 'Abandono para comparar opções no mercado ou aguardar cupons de desconto'
+          : 'Cart abandonment for competitor comparison or hunting for promo coupons',
+        insight: isPt
+          ? 'Carrinhos contendo o anel + carregador rápido representam 42% do volume.'
+          : 'Bundled carts (Ring + Fast Wireless Charger) represent 42% of volume.',
+        actionableRecommendation: isPt
+          ? 'Adicione barra de frete grátis restante ("Faltam $20 para Frete Expresso Internacional Grátis").'
+          : 'Add dynamic free shipping progress bar ("Add $20 for Free Express International Shipping").',
+        iconName: 'shopping-cart',
+      },
+      {
+        id: 'checkout',
+        stepNumber: 4,
+        label: isPt ? 'Checkout Iniciado' : 'Initiated Checkout',
+        sublabel: isPt
+          ? 'Preenchimento de dados de entrega, endereço e seleção de frete'
+          : 'Shipping address input, contact details, and freight carrier selection',
+        count: targetCheckouts,
+        formattedCount: targetCheckouts.toLocaleString(),
+        percentageOfTop: calcPct(targetCheckouts, targetVisitors),
+        conversionFromPrev: calcPct(targetCheckouts, cartCount),
+        dropOffRate: Math.max(0, 100 - calcPct(targetCheckouts, cartCount)),
+        dropOffCount: Math.max(0, cartCount - targetCheckouts),
+        mobileRate: 64,
+        desktopRate: 36,
+        topDropoffReason: checkoutFriction,
+        insight: isPt
+          ? '63% dos abandonos de checkout acontecem no passo de cálculo de frete internacional.'
+          : '63% of checkout drop-offs occur on the international shipping calculation step.',
+        actionableRecommendation: isPt
+          ? 'Ofereça modalidade DDP (Delivery Duty Paid) com frete expresso transparente sem surpresas.'
+          : 'Provide transparent DDP (Delivery Duty Paid) shipping with all local taxes included.',
+        iconName: 'credit-card',
+      },
+      {
+        id: 'purchase',
+        stepNumber: 5,
+        label: isPt ? 'Vendas Concluídas' : 'Completed Purchases',
+        sublabel: isPt
+          ? 'Pagamentos processados e pedidos confirmados no banco de dados'
+          : 'Payments successfully settled and orders registered in database',
+        count: targetPurchases,
+        formattedCount: targetPurchases.toLocaleString(),
+        percentageOfTop: calcPct(targetPurchases, targetVisitors, 2),
+        conversionFromPrev: calcPct(targetPurchases, targetCheckouts),
+        dropOffRate: Math.max(0, 100 - calcPct(targetPurchases, targetCheckouts)),
+        dropOffCount: Math.max(0, targetCheckouts - targetPurchases),
+        revenue: targetRevenue,
+        avgOrderValue: targetPurchases > 0 ? targetRevenue / targetPurchases : 132.6,
+        mobileRate: 61,
+        desktopRate: 39,
+        topDropoffReason: paymentFriction,
+        insight: isPt
+          ? 'Taxa de aprovação via Apple Pay e Stripe Link é de 97.6% nesta geografia.'
+          : 'Approval rate through Apple Pay and Stripe Link is 97.6% in this geography.',
+        actionableRecommendation: isPt
+          ? 'Ative carteiras digitais locais (Apple Pay, Google Pay, PIX, Klarna) para reduzir atrito.'
+          : 'Activate local digital wallets (Apple Pay, Google Pay, PIX, Klarna) to maximize approval.',
+        iconName: 'check-circle',
+      },
+      {
+        id: 'retention',
+        stepNumber: 6,
+        label: isPt ? 'Recompra & Retenção (LTV)' : 'Repeat & Retention (LTV)',
+        sublabel: isPt
+          ? 'Clientes que compraram acessórios ou assinaram o serviço de IA em nuvem'
+          : 'Customers who ordered extra accessories or subscribed to AH19 AI Health Cloud',
+        count: retentionCount,
+        formattedCount: retentionCount.toLocaleString(),
+        percentageOfTop: calcPct(retentionCount, targetVisitors, 2),
+        conversionFromPrev: calcPct(retentionCount, targetPurchases),
+        dropOffRate: Math.max(0, 100 - calcPct(retentionCount, targetPurchases)),
+        dropOffCount: Math.max(0, targetPurchases - retentionCount),
+        mobileRate: 67,
+        desktopRate: 33,
+        topDropoffReason: isPt
+          ? 'Falta de fluxo de e-mail e push onboarding nos primeiros 14 dias após a entrega'
+          : 'Lack of onboarding push notifications & engagement emails within 14 days of delivery',
+        insight: isPt
+          ? 'Clientes que sincronizam métricas de sono no primeiro dia têm 3.2x maior LTV em 90 dias.'
+          : 'Users syncing sleep telemetry on day one yield 3.2x higher 90-day lifetime value.',
+        actionableRecommendation: isPt
+          ? 'Dispare sequência pós-entrega com 30 dias grátis de AH19 Health Cloud e 15% off em acessórios.'
+          : 'Automate post-delivery onboarding with 30-day free AH19 Health Cloud trial and 15% off accessories.',
+        iconName: 'repeat',
+      },
+    ];
+  }, [selectedCountry, displayKpis, multiplier, isPt]);
+
+  const countriesList = useMemo(() => {
+    return countries.map((c) => ({
+      code: c.country_code,
+      name: c.country,
+      flag: c.flag,
+    }));
+  }, [countries]);
+
+  const handleSelectCountryFromFunnel = (code: string) => {
+    if (code === 'ALL') {
+      setSelectedCountry(null);
+    } else {
+      const found = countries.find((c) => c.country_code === code);
+      if (found) setSelectedCountry(found);
+    }
+  };
 
   // Handle Sandbox Simulated Sale
   const handleRunSimulation = async () => {
@@ -508,59 +751,84 @@ export const GeographicAnalyticsPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Map Metric Selector Buttons */}
-          <div className="flex items-center gap-1.5 bg-[#141414] border border-[#262626] rounded-xl p-1 text-xs">
+          {/* Map Controls */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Map Metric Selector Buttons */}
+            <div className="flex items-center gap-1.5 bg-[#141414] border border-[#262626] rounded-xl p-1 text-xs">
+              <button
+                onClick={() => setMapMetric('revenue')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                  mapMetric === 'revenue'
+                    ? 'btn-gold-blend text-black shadow-md'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                {isPt ? 'Receita' : 'Revenue'}
+              </button>
+              <button
+                onClick={() => setMapMetric('purchases')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                  mapMetric === 'purchases'
+                    ? 'btn-gold-blend text-black shadow-md'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                {isPt ? 'Vendas' : 'Purchases'}
+              </button>
+              <button
+                onClick={() => setMapMetric('checkouts')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                  mapMetric === 'checkouts'
+                    ? 'btn-gold-blend text-black shadow-md'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                {isPt ? 'Checkouts' : 'Checkouts'}
+              </button>
+              <button
+                onClick={() => setMapMetric('visitors')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                  mapMetric === 'visitors'
+                    ? 'btn-gold-blend text-black shadow-md'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                {isPt ? 'Visitantes' : 'Visitors'}
+              </button>
+            </div>
+
+            {/* Expand Image Modal Button */}
             <button
-              onClick={() => setMapMetric('revenue')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-                mapMetric === 'revenue'
-                  ? 'btn-gold-blend text-black shadow-md'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
+              id="expand-world-map-btn"
+              onClick={() => setMapImageExpanded(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#141414] hover:bg-[#1E1E1E] border border-[#2B2B2B] hover:border-[#FFD000]/60 text-xs font-bold text-neutral-300 hover:text-white transition-all cursor-pointer shadow-sm"
+              title={isPt ? 'Expandir imagem do mapa mundial' : 'Expand world map image'}
             >
-              {isPt ? 'Receita' : 'Revenue'}
-            </button>
-            <button
-              onClick={() => setMapMetric('purchases')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-                mapMetric === 'purchases'
-                  ? 'btn-gold-blend text-black shadow-md'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              {isPt ? 'Vendas' : 'Purchases'}
-            </button>
-            <button
-              onClick={() => setMapMetric('checkouts')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-                mapMetric === 'checkouts'
-                  ? 'btn-gold-blend text-black shadow-md'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              {isPt ? 'Checkouts' : 'Checkouts'}
-            </button>
-            <button
-              onClick={() => setMapMetric('visitors')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-                mapMetric === 'visitors'
-                  ? 'btn-gold-blend text-black shadow-md'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              {isPt ? 'Visitantes' : 'Visitors'}
+              <Maximize2 className="w-3.5 h-3.5 text-[#FFE76A]" />
+              <span className="hidden sm:inline">{isPt ? 'Visualizar Imagem' : 'View Image'}</span>
             </button>
           </div>
         </div>
 
-        {/* Interactive SVG World Map Canvas */}
-        <div className="relative w-full aspect-[2/1] bg-[#050505] rounded-xl border border-[#1C1C1C] overflow-hidden flex items-center justify-center">
-          {/* Subtle Grid Lines */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#141414_1px,transparent_1px),linear-gradient(to_bottom,#141414_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-30" />
+        {/* Interactive World Map Canvas with High-Resolution Image */}
+        <div className="relative w-full aspect-[2/1] bg-[#050505] rounded-xl border border-[#1C1C1C] overflow-hidden flex items-center justify-center group/map shadow-2xl">
+          {/* High-Resolution World Map Image */}
+          <img
+            src={worldMapGeoImage}
+            alt={isPt ? 'Mapa Mundial de Desempenho Geográfico' : 'World Geographic Performance Map'}
+            className="absolute inset-0 w-full h-full object-cover object-center select-none pointer-events-none opacity-90 transition-transform duration-700 ease-out group-hover/map:scale-[1.01]"
+            referrerPolicy="no-referrer"
+          />
 
+          {/* Subtle Ambient Darkness Vignette & Tech Grid */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/65 pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.65)_100%)] pointer-events-none" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#141414_1px,transparent_1px),linear-gradient(to_bottom,#141414_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-20 pointer-events-none" />
+
+          {/* Interactive SVG Overlay with Pulsing Beacon Hotspot Nodes */}
           <svg
             viewBox="0 0 1000 500"
-            className="w-full h-full select-none"
+            className="relative z-10 w-full h-full select-none"
             preserveAspectRatio="xMidYMid meet"
           >
             <defs>
@@ -570,50 +838,6 @@ export const GeographicAnalyticsPage: React.FC = () => {
                 <stop offset="100%" stopColor="#875803" stopOpacity="0" />
               </radialGradient>
             </defs>
-
-            {/* Stylized Landmass Vector Paths */}
-            {/* North America */}
-            <path
-              d="M120,80 Q200,60 280,90 Q340,110 320,170 Q280,220 220,230 Q160,200 130,140 Z"
-              fill="#141414"
-              stroke="#242424"
-              strokeWidth="1"
-            />
-            {/* South America */}
-            <path
-              d="M260,260 Q340,270 350,330 Q330,420 280,450 Q230,410 240,320 Z"
-              fill="#141414"
-              stroke="#242424"
-              strokeWidth="1"
-            />
-            {/* Europe */}
-            <path
-              d="M480,90 Q560,80 580,120 Q550,170 480,160 Q450,130 480,90 Z"
-              fill="#141414"
-              stroke="#242424"
-              strokeWidth="1"
-            />
-            {/* Africa */}
-            <path
-              d="M470,180 Q570,180 580,260 Q550,370 490,380 Q430,300 450,220 Z"
-              fill="#141414"
-              stroke="#242424"
-              strokeWidth="1"
-            />
-            {/* Asia */}
-            <path
-              d="M590,90 Q780,70 850,140 Q880,220 780,270 Q660,240 600,160 Z"
-              fill="#141414"
-              stroke="#242424"
-              strokeWidth="1"
-            />
-            {/* Australia */}
-            <path
-              d="M780,330 Q870,320 890,380 Q850,440 780,420 Q750,370 780,330 Z"
-              fill="#141414"
-              stroke="#242424"
-              strokeWidth="1"
-            />
 
             {/* Pulsing Beacon Nodes for Active Countries */}
             {mapPoints.map((point) => {
@@ -628,7 +852,7 @@ export const GeographicAnalyticsPage: React.FC = () => {
                   <circle
                     cx={point.cx}
                     cy={point.cy}
-                    r={isSelected ? 18 : 12}
+                    r={isSelected ? 20 : 13}
                     fill="url(#pulseGlow)"
                     className="animate-ping origin-center"
                     style={{ animationDuration: '3s' }}
@@ -638,7 +862,7 @@ export const GeographicAnalyticsPage: React.FC = () => {
                   <circle
                     cx={point.cx}
                     cy={point.cy}
-                    r={isSelected ? 7 : 5}
+                    r={isSelected ? 7.5 : 5.5}
                     fill={isSelected ? '#FFFFFF' : '#FFD000'}
                     stroke="#000000"
                     strokeWidth="1.5"
@@ -652,7 +876,7 @@ export const GeographicAnalyticsPage: React.FC = () => {
                     fill="#FFFFFF"
                     fontSize="11"
                     fontWeight="bold"
-                    className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] opacity-90 group-hover:opacity-100"
+                    className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] opacity-95 group-hover:opacity-100 group-hover:fill-[#FFE76A]"
                   >
                     {point.flag} {point.country_code}
                   </text>
@@ -661,14 +885,29 @@ export const GeographicAnalyticsPage: React.FC = () => {
             })}
           </svg>
 
-          {/* Quick instructions indicator */}
-          <div className="absolute bottom-3 left-3 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/70 backdrop-blur-md border border-[#222222] text-[11px] text-neutral-400">
+          {/* Quick instructions and status indicator */}
+          <div className="absolute bottom-3 left-3 z-20 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/85 backdrop-blur-md border border-[#222222] text-[11px] text-neutral-300 shadow-md">
             <span className="w-2 h-2 rounded-full bg-[#FFD000] animate-pulse" />
-            <span>
+            <span className="font-medium">
               {isPt
-                ? 'Exibindo hotspots ativos em tempo real'
-                : 'Displaying live active commerce hotspots'}
+                ? 'Mapa Mundial Ativo • Hotspots em Tempo Real'
+                : 'Live World Map Active • Real-Time Hotspots'}
             </span>
+            <span className="badge-gold-outline text-[10px] px-1.5 py-0.2 rounded font-mono ml-1">
+              {mapPoints.length} {isPt ? 'países' : 'countries'}
+            </span>
+          </div>
+
+          {/* Fullscreen Expand trigger button on bottom-right of map */}
+          <div className="absolute bottom-3 right-3 z-20 flex items-center gap-2">
+            <button
+              id="map-canvas-expand-btn"
+              onClick={() => setMapImageExpanded(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/85 hover:bg-black backdrop-blur-md border border-[#262626] hover:border-[#FFD000]/60 text-[11px] font-bold text-neutral-200 hover:text-white transition-all cursor-pointer shadow-md"
+            >
+              <ImageIcon className="w-3.5 h-3.5 text-[#FFE76A]" />
+              <span>{isPt ? 'Expandir Mapa' : 'Expand Map'}</span>
+            </button>
           </div>
         </div>
 
@@ -739,6 +978,28 @@ export const GeographicAnalyticsPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Customer Journey Funnel Section for Geographic Analytics */}
+      <CustomerJourneyFunnel
+        stages={geoFunnelStages}
+        mode="geographic"
+        title={isPt ? 'Funil da Jornada do Cliente Geográfico' : 'Geographic Customer Journey Funnel'}
+        subtitle={
+          selectedCountry
+            ? (isPt
+                ? `Análise de conversão e diagnóstico de atrito para ${selectedCountry.country} (${selectedCountry.flag} ${selectedCountry.country_code})`
+                : `Conversion telemetry & friction diagnosis for ${selectedCountry.country} (${selectedCountry.flag} ${selectedCountry.country_code})`)
+            : (isPt
+                ? 'Visão ponta a ponta sobre todas as 6 etapas da jornada do cliente em todos os mercados globais'
+                : 'End-to-end telemetry across all 6 customer journey stages across all global markets')
+        }
+        selectedCountryName={selectedCountry ? selectedCountry.country : undefined}
+        selectedCountryFlag={selectedCountry ? selectedCountry.flag : undefined}
+        countriesList={countriesList}
+        onSelectCountry={handleSelectCountryFromFunnel}
+        formatCurrency={formatCurrency}
+        isPt={isPt}
+      />
 
       {/* Two Column Layout: Country Breakdown & City Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1107,6 +1368,151 @@ export const GeographicAnalyticsPage: React.FC = () => {
               >
                 <ExternalLink className="w-4 h-4" />
                 <span>Stripe Checkout</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-Screen High-Resolution World Map Modal */}
+      {mapImageExpanded && (
+        <div
+          id="world-map-expanded-modal"
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200"
+          onClick={() => setMapImageExpanded(false)}
+        >
+          <div
+            className="bg-[#0A0A0A] border border-[#2A2A2A] rounded-2xl w-full max-w-6xl max-h-[95vh] flex flex-col shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#1C1C1C] bg-[#0E0E0E]">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#FFD000]/10 border border-[#FFD000]/30 flex items-center justify-center text-[#FFE76A]">
+                  <Globe className="w-5 h-5 text-[#FFD000]" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                    <span>{isPt ? 'Mapa Mundial de Desempenho Geográfico' : 'World Geographic Performance Map'}</span>
+                    <span className="badge-gold-blend text-[10px] font-bold px-2 py-0.5 rounded">ULTRA HD</span>
+                  </h3>
+                  <p className="text-xs text-neutral-400">
+                    {isPt
+                      ? 'Visualização expandida em alta resolução com hotspots de vendas e checkouts ao vivo.'
+                      : 'Expanded high-definition view with live sales and checkout hotspots.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  id="close-expanded-map-btn"
+                  onClick={() => setMapImageExpanded(false)}
+                  className="p-2 rounded-xl text-neutral-400 hover:text-white bg-[#141414] hover:bg-[#202020] border border-[#242424] hover:border-neutral-500 transition-colors"
+                  aria-label="Fechar mapa"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Map View Area */}
+            <div className="relative w-full aspect-[16/9] sm:aspect-[2/1] bg-[#050505] overflow-hidden flex items-center justify-center">
+              {/* High-Resolution World Map Image */}
+              <img
+                src={worldMapGeoImage}
+                alt={isPt ? 'Mapa Mundial de Desempenho Geográfico' : 'World Geographic Performance Map'}
+                className="absolute inset-0 w-full h-full object-cover object-center select-none pointer-events-none opacity-95"
+                referrerPolicy="no-referrer"
+              />
+
+              {/* Ambient Vignette Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none" />
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.6)_100%)] pointer-events-none" />
+
+              {/* Hotspot Beacons Overlay */}
+              <svg
+                viewBox="0 0 1000 500"
+                className="relative z-10 w-full h-full select-none"
+                preserveAspectRatio="xMidYMid meet"
+              >
+                <defs>
+                  <radialGradient id="modalPulseGlow" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="#FFD000" stopOpacity="0.9" />
+                    <stop offset="40%" stopColor="#C99712" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#875803" stopOpacity="0" />
+                  </radialGradient>
+                </defs>
+
+                {mapPoints.map((point) => {
+                  const isSelected = selectedCountry?.country_code === point.country_code;
+                  return (
+                    <g
+                      key={point.country_code}
+                      className="cursor-pointer group"
+                      onClick={() => {
+                        setSelectedCountry(point);
+                        setMapImageExpanded(false);
+                      }}
+                    >
+                      <circle
+                        cx={point.cx}
+                        cy={point.cy}
+                        r={isSelected ? 22 : 14}
+                        fill="url(#modalPulseGlow)"
+                        className="animate-ping origin-center"
+                        style={{ animationDuration: '3s' }}
+                      />
+                      <circle
+                        cx={point.cx}
+                        cy={point.cy}
+                        r={isSelected ? 8 : 6}
+                        fill={isSelected ? '#FFFFFF' : '#FFD000'}
+                        stroke="#000000"
+                        strokeWidth="1.5"
+                        className="transition-all group-hover:scale-125 origin-center shadow-lg"
+                      />
+                      <text
+                        x={point.cx + 10}
+                        y={point.cy + 4}
+                        fill="#FFFFFF"
+                        fontSize="12"
+                        fontWeight="bold"
+                        className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] opacity-95 group-hover:opacity-100 group-hover:fill-[#FFE76A]"
+                      >
+                        {point.flag} {point.country_code}
+                      </text>
+                    </g>
+                  );
+                })}
+              </svg>
+
+              {/* Bottom Quick Bar */}
+              <div className="absolute bottom-4 left-4 z-20 flex items-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/85 backdrop-blur-md border border-[#282828] text-xs text-neutral-300">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#FFD000] animate-pulse" />
+                  <span className="font-semibold text-white">
+                    {mapPoints.length} {isPt ? 'Países com Vendas e Checkouts Ativos' : 'Countries with Active Sales'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer Quick Stats */}
+            <div className="p-4 bg-[#0A0A0A] border-t border-[#1C1C1C] flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-neutral-400">
+                <Sparkles className="w-4 h-4 text-[#FFE76A]" />
+                <span>
+                  {isPt
+                    ? 'Clique em qualquer nó luminoso no mapa para inspecionar métricas do país.'
+                    : 'Click any beacon on the map to inspect country metrics.'}
+                </span>
+              </div>
+              <button
+                onClick={() => setMapImageExpanded(false)}
+                className="btn-gold-blend px-4 py-2 rounded-xl text-black font-bold"
+              >
+                {isPt ? 'Concluído' : 'Done'}
               </button>
             </div>
           </div>

@@ -7,7 +7,6 @@ import { AdPerformanceCard } from '../components/AdPerformanceCard';
 import { SalesFunnelCard } from '../components/SalesFunnelCard';
 import { RecentOrdersCard } from '../components/RecentOrdersCard';
 import { AIInsightsCard } from '../components/AIInsightsCard';
-import { IntegrationsCard } from '../components/IntegrationsCard';
 import { CountryDetailModal } from '../components/modals/CountryDetailModal';
 import { CountrySale } from '../types';
 
@@ -113,15 +112,6 @@ export const OverviewPage: React.FC = () => {
               navigate(parts[0] as any, parts[1] || 'overview', parts[2] || null);
             }
           }}
-        />
-      </div>
-
-      {/* 5. Integrations Hub (Bottom Card) */}
-      <div className="w-full pb-6">
-        <IntegrationsCard
-          integrations={integrations as any}
-          onConnectNew={() => setConnectModalOpen(true)}
-          onSelectIntegration={() => navigate('integrations', 'overview')}
         />
       </div>
 

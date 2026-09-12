@@ -11,6 +11,7 @@ import { ToastContainer } from './components/ToastContainer';
 
 // Pages
 import { AuthPage } from './pages/AuthPage';
+import { OnboardingPage } from './pages/OnboardingPage';
 import { OverviewPage } from './pages/OverviewPage';
 import { SalesPage } from './pages/SalesPage';
 import { ProductsPage } from './pages/ProductsPage';
@@ -42,14 +43,31 @@ import { ProductFormModal } from './components/modals/ProductFormModal';
 import { TransactionFormModal } from './components/modals/TransactionFormModal';
 
 const AppLayout: React.FC = () => {
-  const { activeNav, isAuthenticated, periodSelectorModalOpen, setPeriodSelectorModalOpen } = useApp();
+  const {
+    activeNav,
+    isAuthenticated,
+    currentUser,
+    periodSelectorModalOpen,
+    setPeriodSelectorModalOpen,
+  } = useApp();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  // If user is not authenticated, present the authentication experience
+  // 1. If user is not authenticated, strictly present the authentication experience
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-black text-white">
         <AuthPage />
+        <ToastContainer />
+      </div>
+    );
+  }
+
+  // 2. If authenticated but onboarding is incomplete, present full-screen onboarding experience
+  const needsOnboarding = currentUser && currentUser.onboarding_completed === false;
+  if (needsOnboarding || activeNav === 'onboarding') {
+    return (
+      <div className="min-h-screen bg-black text-white">
+        <OnboardingPage />
         <ToastContainer />
       </div>
     );

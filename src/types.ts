@@ -32,6 +32,7 @@ export type DataMode = 'demo' | 'live';
 export type Language = 'pt' | 'en';
 
 export type MainNavId =
+  | 'onboarding'
   | 'dashboard'
   | 'overview'
   | 'sales'
@@ -180,15 +181,35 @@ export interface TransactionItem {
   reference?: string;
 }
 
+export interface OnboardingResponses {
+  products: string[];
+  customProduct?: string;
+  niche: string;
+  customNiche?: string;
+  channels: string[];
+  customChannel?: string;
+  strategy: string;
+  adChannels?: string[];
+  customAdChannel?: string;
+  organicChannels?: string[];
+  customOrganicChannel?: string;
+  goal: string;
+  stage: string;
+  completedAt?: string;
+}
+
 export interface AuthUser {
   id: string;
   name: string;
   email: string;
   role: string;
   company: string;
-  avatar: string;
+  avatar?: string;
+  auth_provider?: 'google' | 'email';
   company_id?: string;
   phone?: string;
+  onboarding_completed?: boolean;
+  onboarding_data?: OnboardingResponses;
 }
 
 export interface CustomerItem {
@@ -342,6 +363,27 @@ export interface FunnelStage {
   topDropoffReason: string;
 }
 
+export interface CustomerJourneyStage {
+  id: string;
+  stepNumber: number;
+  label: string;
+  sublabel: string;
+  count: number;
+  formattedCount: string;
+  percentageOfTop: number;
+  conversionFromPrev: number;
+  dropOffRate: number;
+  dropOffCount: number;
+  revenue?: number;
+  avgOrderValue?: number;
+  mobileRate: number;
+  desktopRate: number;
+  topDropoffReason: string;
+  insight: string;
+  actionableRecommendation: string;
+  iconName: 'users' | 'eye' | 'shopping-cart' | 'credit-card' | 'check-circle' | 'repeat';
+}
+
 export interface AttributionModelComparison {
   channel: string;
   firstTouch: number;
@@ -375,7 +417,7 @@ export interface IntegrationItem {
   lastSync: string;
   eventHealth: 'Optimal (100%)' | 'Healthy (98.4%)' | 'Needs Attention' | 'Offline';
   eventsTracked: { name: string; active: boolean; count: number }[];
-  iconKey: 'shopify' | 'meta' | 'google' | 'ga4' | 'tiktok' | 'gtm' | 'klaviyo' | 'stripe' | 'amazon';
+  iconKey: 'shopify' | 'meta' | 'google' | 'ga4' | 'tiktok' | 'gtm' | 'klaviyo' | 'stripe' | 'amazon' | 'webhook';
   description: string;
 }
 

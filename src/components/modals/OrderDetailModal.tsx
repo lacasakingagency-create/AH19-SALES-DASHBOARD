@@ -14,6 +14,7 @@ import {
   ExternalLink,
   ShieldCheck,
 } from 'lucide-react';
+import { getFirstLetter } from '../../utils/avatarUtils';
 
 export const OrderDetailModal: React.FC = () => {
   const { selectedOrder, setSelectedOrder, formatCurrency, addToast, setSelectedCustomer, customers } = useApp();
@@ -112,12 +113,21 @@ export const OrderDetailModal: React.FC = () => {
           {/* Customer & Timestamp Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
             <div className="flex items-center gap-3">
-              <img
-                src={selectedOrder.customer.avatar}
-                alt={selectedOrder.customer.name}
-                className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-xs shrink-0"
-                referrerPolicy="no-referrer"
-              />
+              {selectedOrder.customer.avatar && !selectedOrder.customer.avatar.includes('images.unsplash.com') ? (
+                <img
+                  src={selectedOrder.customer.avatar}
+                  alt={selectedOrder.customer.name}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                  className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-xs shrink-0"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-11 h-11 rounded-full bg-slate-900 text-[#FFD000] font-mono font-bold text-sm flex items-center justify-center border-2 border-white shadow-xs shrink-0">
+                  {getFirstLetter(selectedOrder.customer.name || 'U')}
+                </div>
+              )}
               <div>
                 <div className="flex items-center gap-2">
                   <h4 className="text-sm font-bold text-slate-900">{selectedOrder.customer.name}</h4>
